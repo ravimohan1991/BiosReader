@@ -653,6 +653,7 @@ static void print_help(void)
 	printf("%s", help);
 }
 
+/*
 int main(int argc, char * const argv[])
 {
 	u8 *buf;
@@ -665,7 +666,7 @@ int main(int argc, char * const argv[])
 		exit(255);
 	}
 
-	/* Set default option values */
+	/* Set default option values */ /*
 	opt.devmem = DEFAULT_MEM_DEV;
 	opt.flags = 0;
 
@@ -689,7 +690,7 @@ int main(int argc, char * const argv[])
 	if ((buf = mem_chunk(0xE0000, 0x20000, opt.devmem)) == NULL)
 		exit(1);
 
-	/* Compute anchor lengths once and for all */
+	/* Compute anchor lengths once and for all */ /*
 	for (i = 0; bios_entries[i].anchor != NULL; i++)
 		bios_entries[i].anchor_len = strlen(bios_entries[i].anchor);
 
@@ -721,3 +722,4 @@ int main(int argc, char * const argv[])
 
 	return 0;
 }
+*/

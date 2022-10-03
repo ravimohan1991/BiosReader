@@ -153,6 +153,7 @@ static void print_help(void)
 	printf("%s", help);
 }
 
+/*
 int main(int argc, char * const argv[])
 {
 	u8 *buf;
@@ -165,7 +166,7 @@ int main(int argc, char * const argv[])
 		exit(255);
 	}
 
-	/* Set default option values */
+	/* Set default option values */ /*
 	opt.devmem = DEFAULT_MEM_DEV;
 	opt.flags = 0;
 
@@ -212,3 +213,4 @@ int main(int argc, char * const argv[])
 
 	return 0;
 }
+*/

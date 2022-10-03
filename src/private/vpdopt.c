@@ -89,6 +89,7 @@ static int parse_opt_string(const char *arg)
  */
 
 /* Return -1 on error, 0 on success */
+/*
 int parse_command_line(int argc, char * const argv[])
 {
 	int option;
@@ -155,3 +156,4 @@ void print_help(void)
 
 	printf("%s", help);
 }
+*/

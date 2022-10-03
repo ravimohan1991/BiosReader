@@ -33,7 +33,7 @@
 
 
 /* Options are global */
-struct opt opt;
+//struct opt opt;
 
 
 /*
