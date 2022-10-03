@@ -1,0 +1,39 @@
+# Copied from Karma's repository. Need changes based on needs
+# Directories
+KarmaLightHouse/
+KarmaBin/
+
+# Visual Studio files
+*.user
+*.vcxproj
+*.vcxproj.filters
+*.sln
+
+# Visual Studio directories
+.vs/
+
+# Codelite files
+*.mk
+*.project
+*.workspace
+
+# Codelite directories
+.codelite/
+
+# Linux specific files
+Makefile
+Application.txt
+Karma.txt
+
+# Linux specific directories
+.build-debug/
+
+# Xcode files
+*.xcodeproj
+*.xcworkspace
+
+# ImGui files
+imgui.ini
+
+# SPIR-V bytecode
+*.spv
