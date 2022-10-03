@@ -26,7 +26,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${REPOSITORYROOT}/BiosReaderBin")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${REPOSITORYROOT}/BiosReaderBin")
 
 # Set the Project name
-set(LIBRARY_NAME "BiosReader")
+set(APPLICATION_NAME "BiosReader")
 
 # Finally we specify policies, if any
 # This one is for inter-directory linking
@@ -46,7 +46,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 #----------------------------------------------------------------------------#
 
 # Set Engine project
-project(${LIBRARY_NAME} VERSION 1.0)
+project(${APPLICATION_NAME} VERSION 1.0)
 #add_compile_definitions(KR_APPLICATION_NAME="${KARMA_GAME_NAME}")
 
 # Setting some flags

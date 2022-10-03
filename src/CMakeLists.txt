@@ -112,11 +112,24 @@ file(GLOB_RECURSE HEADERFILES ${CMAKE_CURRENT_SOURCE_DIR}/public/*.h)
 # SOURCE_GROUP_BY_FOLDER(src)
 
 # Building the project (STATIC or DYNAMIC (SHARED))
-if (BUILD_SHARED_LIBS)
-    add_library(${LIBRARY_NAME} SHARED ${CFILES} ${HEADERFILES})
-else()
-    add_library(${LIBRARY_NAME} STATIC ${CFILES} ${HEADERFILES})
-endif()
+# if (BUILD_SHARED_LIBS)
+#    add_library(${APPLICATION_NAME} SHARED ${CFILES} ${HEADERFILES})
+#else()
+#    add_library(${APPLICATION_NAME} STATIC ${CFILES} ${HEADERFILES})
+#endif()
+
+add_executable(${APPLICATION_NAME} ${CFILES} ${HEADERFILES})
+
+target_include_directories(${APPLICATION_NAME}
+    PRIVATE
+        # where the library itself will look for its internal headers
+        ${CMAKE_CURRENT_SOURCE_DIR}/public
+    PUBLIC
+        # where top-level project will look for the library's public headers
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/public>
+        # where external projects will look for the library's public headers
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
 #[[
  *                                          /\

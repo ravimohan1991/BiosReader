@@ -83,7 +83,8 @@ static struct opt opt;
 #define PIR_SHORT               0
 #define PIR_FULL                1
 
-struct bios_entry {
+struct bios_entry
+{
 	const char *anchor;
 	size_t anchor_len; /* computed */
 	off_t low_address;
@@ -94,7 +95,7 @@ struct bios_entry {
 
 
 /*
- * SMBIOS
+ * SMBIOS (System Management BIOS)
  */
 
 static size_t smbios3_length(const u8 *p)
