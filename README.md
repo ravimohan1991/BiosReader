@@ -5,7 +5,8 @@ INTRODUCTION
 ------------
 
 BiosReader reports information about your system's hardware as described in
-your system BIOS according to the SMBIOS/DMI standard (whatever this is). 
+your system BIOS according to the SMBIOS/DMI ([wiki link](https://en.wikipedia.org/wiki/Desktop_Management_Interface)) 
+standard (whatever this is). 
 This information typically includes system manufacturer, model name, serial number, BIOS
 version, asset tag as well as a lot of other details of varying level of
 interest and reliability depending on the manufacturer. This will often
@@ -19,7 +20,7 @@ developers to detect system "signatures" and add them to the kernel source
 code when needed.
 
 Beware that DMI data have proven to be too unreliable to be blindly trusted.
-Dmidecode does not scan your hardware, it only reports what the BIOS told it
+BiosReader does not scan your hardware, it only reports what the BIOS told it
 to.
 
 Please note that this project is extention and, supposabily, heavy modification of
