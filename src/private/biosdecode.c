@@ -125,6 +125,7 @@ static size_t smbios_length(const u8 *p)
 
 static int smbios_decode(const u8 *p, size_t len)
 {
+	// The C library function int memcmp(const void *str1, const void *str2, size_t n)) compares the first n bytes of memory area str1 and memory area str2.
 	if (len < 0x1F || !checksum(p, p[0x05])
 	 || memcmp("_DMI_", p + 0x10, 5) != 0
 	 || !checksum(p + 0x10, 0x0F))

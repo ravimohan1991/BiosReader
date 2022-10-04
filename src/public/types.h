@@ -52,8 +52,8 @@ static inline u64 U64(u32 low, u32 high)
 #define QWORD(x) (U64(DWORD(x), DWORD(x + 4)))
 #else /* ALIGNMENT_WORKAROUND || BIGENDIAN */
 #define WORD(x) (u16)(*(const u16 *)(x))
-#define DWORD(x) (u32)(*(const u32 *)(x))
-#define QWORD(x) (*(const u64 *)(x))
+#define DWORD(x) (u32)(*(const u32 *)(x)) // dereference of pointer to const u32
+#define QWORD(x) (*(const u64 *)(x)) // dereference of pointer to const u64
 #endif /* ALIGNMENT_WORKAROUND || BIGENDIAN */
 
 #endif

@@ -51,8 +51,12 @@ static const char *dmi_product = NULL;
  * value if we know how to decode at least one specific entry type for
  * that vendor.
  */
+
+// Please visit https://en.wikipedia.org/wiki/Desktop_Management_Interface for
+// bon-appatite
 void dmi_set_vendor(const char *v, const char *p)
 {
+	// The list may nut be exhaustive a good start nevertheless!
 	const struct { const char *str; enum DMI_VENDORS id; } vendor[] = {
 		{ "Acer",			VENDOR_ACER },
 		{ "HP",				VENDOR_HP },

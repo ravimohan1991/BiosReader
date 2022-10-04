@@ -4275,6 +4275,7 @@ static void dmi_firmware_components(u8 count, const u8 *p)
 
 /*
  * Main
+ * The juicy stuff!!
  */
 
 static void dmi_decode(const struct dmi_header *h, u16 ver)
@@ -5368,6 +5369,9 @@ static void dmi_decode(const struct dmi_header *h, u16 ver)
 	pr_sep();
 }
 
+
+// Some type-cast gymnastics for extracting relevant information from buffer
+// may need to collect the algorithm for the variety of kernels (?)
 static void to_dmi_header(struct dmi_header *h, u8 *data)
 {
 	h->type = data[0];
@@ -5434,12 +5438,23 @@ static void dmi_table_dump(const u8 *buf, u32 len)
 	write_dump(32, len, buf, opt.dumpfile, 0);
 }
 
+/*****************************************************************************************
+ * Decoding the raw information spit by Bios of the electronics
+ * @param buf      the raw information obtained from /sys/firmware/dmi/tables/DMI (Ubuntu)
+ * @param len      12th (or 13 maybe) element of entrypoint buff derefrenced (smbios_entry_point)
+ * @param num      number of **some** structures
+ * @param ver      SMBIOS version in octal system, right shifted by 8, converted to unsigned short (observe the u32 -> u16)
+ * @param
+ * @param
+ *****************************************************************************************
+ */
+
 static void dmi_table_decode(u8 *buf, u32 len, u16 num, u16 ver, u32 flags)
 {
 	u8 *data;
 	int i = 0;
 
-	/* First pass: Save specific values needed to decode OEM types */
+	/* First pass: Save specific values needed to decode OEM (Original Equipment Manufacturer) types */
 	data = buf;
 	while ((i < num || !num)
 	    && data + 4 <= buf + len) /* 4 is the length of an SMBIOS structure header */
@@ -5522,6 +5537,7 @@ static void dmi_table_decode(u8 *buf, u32 len, u16 num, u16 ver, u32 flags)
 		if ((opt.flags & FLAG_QUIET) && h.type == 127)
 			break;
 
+		// This line runs
 		if (display
 		 && (!(opt.flags & FLAG_QUIET) || (opt.flags & FLAG_DUMP)))
 			pr_handle(&h);
@@ -5555,7 +5571,10 @@ static void dmi_table_decode(u8 *buf, u32 len, u16 num, u16 ver, u32 flags)
 				pr_sep();
 			}
 			else
+			{
+				// Handles for various electronics items (in the PC)
 				dmi_decode(&h, ver);
+			}
 		}
 		else if (opt.string != NULL
 		      && opt.string->type == h.type)
@@ -5585,6 +5604,17 @@ static void dmi_table_decode(u8 *buf, u32 len, u16 num, u16 ver, u32 flags)
 	}
 }
 
+/**********************************************************************************
+ * DAnalyzing the DMI file
+ * @param base
+ * @param len            12th (or 13) element of entrypoint buff derefrenced
+ * @param num            number of **some** structures
+ * @param ver            SMBIOS version in octal system, converted to unsigned int
+ * @param devmem
+ * @param flags
+ * ********************************************************************************
+ */
+
 static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char *devmem,
 		      u32 flags)
 {
@@ -5605,10 +5635,10 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char *devmem,
 		{
 			if (num)
 				pr_info("%u structures occupying %u bytes.",
-					num, len);
+				num, len);
 			if (!(opt.flags & FLAG_FROM_DUMP))
 				pr_info("Table at 0x%08llX.",
-					(unsigned long long)base);
+					(unsigned long long)base);// this line is running
 		}
 		pr_sep();
 	}
@@ -5624,6 +5654,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char *devmem,
 		 * parse error.
 		 */
 		size_t size = len;
+		// read the file /sys/firmware/dmi/tables/DMI (Ubuntu)
 		buf = read_file(flags & FLAG_NO_FILE_OFFSET ? 0 : base,
 			&size, devmem);
 		if (!(opt.flags & FLAG_QUIET) && num && size != (size_t)len)
@@ -5686,6 +5717,16 @@ static void overwrite_smbios3_address(u8 *buf)
 	buf[0x17] = 0;
 }
 
+// The bread and butter of our little awesome library
+
+/*************************************************************************
+ * Decoding the raw information spit by Bios of the electronics
+ * @param buf           the allocated buffer (raw information) from read_file
+ * @param devmem
+ * @param flags
+ * ***********************************************************************
+ */
+
 static int smbios3_decode(u8 *buf, const char *devmem, u32 flags)
 {
 	u32 ver;
@@ -5694,6 +5735,7 @@ static int smbios3_decode(u8 *buf, const char *devmem, u32 flags)
 	/* Don't let checksum run beyond the buffer */
 	if (buf[0x06] > 0x20)
 	{
+		// Need to understand the working
 		fprintf(stderr,
 			"Entry point length too large (%u bytes, expected %u).\n",
 			(unsigned int)buf[0x06], 0x18U);
@@ -5708,7 +5750,11 @@ static int smbios3_decode(u8 *buf, const char *devmem, u32 flags)
 		pr_info("SMBIOS %u.%u.%u present.",
 			buf[0x07], buf[0x08], buf[0x09]);
 
+	// QWORD (*(const u64 *)(x))
+	// dunno why const is here
 	offset = QWORD(buf + 0x10);
+
+	// Need to understand the 64 bit architecture detection trick
 	if (!(flags & FLAG_NO_FILE_OFFSET) && offset.h && sizeof(off_t) < 8)
 	{
 		fprintf(stderr, "64-bit addresses not supported, sorry.\n");
@@ -5903,10 +5949,14 @@ static int address_from_efi(off_t *address)
 
 int main(int argc, char * const argv[])
 {
-	int ret = 0;                /* Returned value */
+	int returnValue = 0;                /* Returned value of this function */
 	int found = 0;
+
+	/* Type of file sizes and offsets.  */
 	off_t fp;
 	size_t size;
+
+
 	int efi;
 	u8 *buf = NULL;
 
@@ -5914,9 +5964,10 @@ int main(int argc, char * const argv[])
 	 * We don't want stdout and stderr to be mixed up if both are
 	 * redirected to the same file.
 	 */
-	setlinebuf(stdout);
-	setlinebuf(stderr);
+	setlinebuf(stdout); // output stream
+	setlinebuf(stderr); // error output stream
 
+	// Sanity check?
 	if (sizeof(u8) != 1 || sizeof(u16) != 2 || sizeof(u32) != 4 || '\0' != 0)
 	{
 		fprintf(stderr, "%s: compiler incompatibility\n", argv[0]);
@@ -5924,13 +5975,13 @@ int main(int argc, char * const argv[])
 	}
 
 	/* Set default option values */
-	opt.devmem = DEFAULT_MEM_DEV;
-	opt.flags = 0;
+	opt.devmem = DEFAULT_MEM_DEV; // An entry point into Bios it seems
+	opt.flags = 0; // Commandline parameters are compared against which
 	opt.handle = ~0U;
 
-	if (parse_command_line(argc, argv)<0)
+	if (parse_command_line(argc, argv) < 0)
 	{
-		ret = 2;
+		returnValue = 2;
 		goto exit_free;
 	}
 
@@ -5947,7 +5998,7 @@ int main(int argc, char * const argv[])
 	}
 
 	if (!(opt.flags & FLAG_QUIET))
-		pr_comment("dmidecode %s", VERSION);
+		pr_comment("BiosReader %s", VERSION);
 
 	/* Read from dump if so instructed */
 	if (opt.flags & FLAG_FROM_DUMP)
@@ -5957,7 +6008,7 @@ int main(int argc, char * const argv[])
 				opt.dumpfile);
 		if ((buf = mem_chunk(0, 0x20, opt.dumpfile)) == NULL)
 		{
-			ret = 1;
+			returnValue = 1;
 			goto exit_free;
 		}
 
@@ -5980,13 +6031,14 @@ int main(int argc, char * const argv[])
 	}
 
 	/*
-	 * First try reading from sysfs tables.  The entry point file could
+	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, tt provides a means to export kernel data structures,
+	 * their attributes, and the linkages between them to userspace).  The entry point file could
 	 * contain one of several types of entry points, so read enough for
 	 * the largest one, then determine what type it contains.
 	 */
 	size = 0x20;
 	if (!(opt.flags & FLAG_NO_SYSFS)
-	 && (buf = read_file(0, &size, SYS_ENTRY_FILE)) != NULL)
+	 && (buf = read_file(0, &size, SYS_ENTRY_FILE)) != NULL)// Caution, entry file may change based on OS
 	{
 		if (!(opt.flags & FLAG_QUIET))
 			pr_info("Getting SMBIOS data from sysfs.");
@@ -6019,7 +6071,7 @@ int main(int argc, char * const argv[])
 		case EFI_NOT_FOUND:
 			goto memory_scan;
 		case EFI_NO_SMBIOS:
-			ret = 1;
+			returnValue = 1;
 			goto exit_free;
 	}
 
@@ -6028,7 +6080,7 @@ int main(int argc, char * const argv[])
 			opt.devmem);
 	if ((buf = mem_chunk(fp, 0x20, opt.devmem)) == NULL)
 	{
-		ret = 1;
+		returnValue = 1;
 		goto exit_free;
 	}
 
@@ -6051,7 +6103,7 @@ memory_scan:
 	/* Fallback to memory scan (x86, x86_64) */
 	if ((buf = mem_chunk(0xF0000, 0x10000, opt.devmem)) == NULL)
 	{
-		ret = 1;
+		returnValue = 1;
 		goto exit_free;
 	}
 
@@ -6098,5 +6150,5 @@ done:
 exit_free:
 	free(opt.type);
 
-	return ret;
+	return returnValue;
 }
