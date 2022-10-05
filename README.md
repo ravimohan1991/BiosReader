@@ -15,7 +15,7 @@ ISA) and memory module slots, and the list of I/O ports (e.g. serial,
 parallel, USB).
 
 DMI data can be used to enable or disable specific portions of kernel code
-depending on the specific hardware. Thus, one use of dmidecode is for kernel
+depending on the specific hardware. Thus, one use of BiosReader is for kernel
 developers to detect system "signatures" and add them to the kernel source
 code when needed.
 
