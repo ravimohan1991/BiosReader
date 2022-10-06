@@ -21,9 +21,12 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>
 #include <stdlib.h>
+
+#ifdef BR_LINUX_PLATFORM
+#include <strings.h>
 #include <getopt.h>
+#endif // BR_LINUX_PLATFORM
 
 #include "config.h"
 #include "types.h"
@@ -31,19 +34,17 @@
 #include "dmidecode.h"
 #include "dmiopt.h"
 
+ /* Options are global */
+ //struct opt opt;
 
-/* Options are global */
-//struct opt opt;
-
-
-/*
- * Handling of option --type
- */
+ /*
+  * Handling of option --type
+  */
 
 struct type_keyword
 {
-	const char *keyword;
-	const u8 *type;
+	const char* keyword;
+	const u8* type;
 };
 
 static const u8 opt_type_bios[] = { 0, 13, 255 };
@@ -79,14 +80,14 @@ static void print_opt_type_list(void)
 	}
 }
 
-static u8 *parse_opt_type(u8 *p, const char *arg)
+static u8* parse_opt_type(u8* p, const char* arg)
 {
 	unsigned int i;
 
 	/* Allocate memory on first call only */
 	if (p == NULL)
 	{
-		p = (u8 *)calloc(256, sizeof(u8));
+		p = (u8*)calloc(256, sizeof(u8));
 		if (p == NULL)
 		{
 			perror("calloc");
@@ -110,7 +111,7 @@ static u8 *parse_opt_type(u8 *p, const char *arg)
 	while (*arg != '\0')
 	{
 		unsigned long val;
-		char *next;
+		char* next;
 
 		val = strtoul(arg, &next, 0);
 		if (next == arg || (*next != '\0' && *next != ',' && *next != ' '))
@@ -139,14 +140,13 @@ exit_free:
 	return NULL;
 }
 
-
 /*
  * Handling of option --string
  */
 
-/* This lookup table could admittedly be reworked for improved performance.
-   Due to the low count of items in there at the moment, it did not seem
-   worth the additional code complexity though. */
+ /* This lookup table could admittedly be reworked for improved performance.
+	Due to the low count of items in there at the moment, it did not seem
+	worth the additional code complexity though. */
 static const struct string_keyword opt_string_keyword[] = {
 	{ "bios-vendor", 0, 0x04 },
 	{ "bios-version", 0, 0x05 },
@@ -178,7 +178,7 @@ static const struct string_keyword opt_string_keyword[] = {
 
 /* This is a template, 3rd field is set at runtime. */
 static struct string_keyword opt_oem_string_keyword =
-	{ NULL, 11, 0x00 };
+{ NULL, 11, 0x00 };
 
 static void print_opt_string_list(void)
 {
@@ -191,7 +191,7 @@ static void print_opt_string_list(void)
 	}
 }
 
-static int parse_opt_string(const char *arg)
+static int parse_opt_string(const char* arg)
 {
 	unsigned int i;
 
@@ -215,10 +215,10 @@ static int parse_opt_string(const char *arg)
 	return -1;
 }
 
-static int parse_opt_oem_string(const char *arg)
+static int parse_opt_oem_string(const char* arg)
 {
 	unsigned long val;
-	char *next;
+	char* next;
 
 	if (opt.string)
 	{
@@ -231,7 +231,7 @@ static int parse_opt_oem_string(const char *arg)
 		goto done;
 
 	val = strtoul(arg, &next, 10);
-	if (next == arg  || *next != '\0' || val == 0x00 || val > 0xff)
+	if (next == arg || *next != '\0' || val == 0x00 || val > 0xff)
 	{
 		fprintf(stderr, "Invalid OEM string number: %s\n", arg);
 		return -1;
@@ -243,10 +243,10 @@ done:
 	return 0;
 }
 
-static u32 parse_opt_handle(const char *arg)
+static u32 parse_opt_handle(const char* arg)
 {
 	u32 val;
-	char *next;
+	char* next;
 
 	val = strtoul(arg, &next, 0);
 	if (next == arg || *next != '\0' || val > 0xffff)
@@ -261,11 +261,12 @@ static u32 parse_opt_handle(const char *arg)
  * Command line options handling
  */
 
-/* Return -1 on error, 0 on success */
-int parse_command_line(int argc, char * const argv[])
+ /* Return -1 on error, 0 on success */
+/*
+int parse_command_line(int argc, char* const argv[])
 {
 	int option;
-	const char *optstring = "d:hqs:t:uH:V";
+	const char* optstring = "d:hqs:t:uH:V";
 	struct option longopts[] = {
 		{ "dev-mem", required_argument, NULL, 'd' },
 		{ "help", no_argument, NULL, 'h' },
@@ -285,70 +286,70 @@ int parse_command_line(int argc, char * const argv[])
 	while ((option = getopt_long(argc, argv, optstring, longopts, NULL)) != -1)
 		switch (option)
 		{
-			case 'B':
-				opt.flags |= FLAG_DUMP_BIN;
-				opt.dumpfile = optarg;
-				break;
-			case 'F':
-				opt.flags |= FLAG_FROM_DUMP;
-				opt.dumpfile = optarg;
-				break;
-			case 'd':
-				opt.devmem = optarg;
-				break;
-			case 'h':
-				opt.flags |= FLAG_HELP;
-				break;
-			case 'q':
-				opt.flags |= FLAG_QUIET;
-				break;
+		case 'B':
+			opt.flags |= FLAG_DUMP_BIN;
+			opt.dumpfile = optarg;
+			break;
+		case 'F':
+			opt.flags |= FLAG_FROM_DUMP;
+			opt.dumpfile = optarg;
+			break;
+		case 'd':
+			opt.devmem = optarg;
+			break;
+		case 'h':
+			opt.flags |= FLAG_HELP;
+			break;
+		case 'q':
+			opt.flags |= FLAG_QUIET;
+			break;
+		case 's':
+			if (parse_opt_string(optarg) < 0)
+				return -1;
+			opt.flags |= FLAG_QUIET;
+			break;
+		case 'O':
+			if (parse_opt_oem_string(optarg) < 0)
+				return -1;
+			opt.flags |= FLAG_QUIET;
+			break;
+		case 't':
+			opt.type = parse_opt_type(opt.type, optarg);
+			if (opt.type == NULL)
+				return -1;
+			break;
+		case 'H':
+			opt.handle = parse_opt_handle(optarg);
+			if (opt.handle == ~0U)
+				return -1;
+			break;
+		case 'u':
+			opt.flags |= FLAG_DUMP;
+			break;
+		case 'S':
+			opt.flags |= FLAG_NO_SYSFS;
+			break;
+		case 'V':
+			opt.flags |= FLAG_VERSION;
+			break;
+		case '?':
+			switch (optopt)
+			{
 			case 's':
-				if (parse_opt_string(optarg) < 0)
-					return -1;
-				opt.flags |= FLAG_QUIET;
-				break;
-			case 'O':
-				if (parse_opt_oem_string(optarg) < 0)
-					return -1;
-				opt.flags |= FLAG_QUIET;
+				fprintf(stderr, "String keyword expected\n");
+				print_opt_string_list();
 				break;
 			case 't':
-				opt.type = parse_opt_type(opt.type, optarg);
-				if (opt.type == NULL)
-					return -1;
+				fprintf(stderr, "Type number or keyword expected\n");
+				print_opt_type_list();
 				break;
-			case 'H':
-				opt.handle = parse_opt_handle(optarg);
-				if (opt.handle  == ~0U)
-					return -1;
-				break;
-			case 'u':
-				opt.flags |= FLAG_DUMP;
-				break;
-			case 'S':
-				opt.flags |= FLAG_NO_SYSFS;
-				break;
-			case 'V':
-				opt.flags |= FLAG_VERSION;
-				break;
-			case '?':
-				switch (optopt)
-				{
-					case 's':
-						fprintf(stderr, "String keyword expected\n");
-						print_opt_string_list();
-						break;
-					case 't':
-						fprintf(stderr, "Type number or keyword expected\n");
-						print_opt_type_list();
-						break;
-				}
-				return -1;
+			}
+			return -1;
 		}
 
-	/* Check for mutually exclusive output format options */
+	/* Check for mutually exclusive output format options *//*
 	if ((opt.string != NULL) + (opt.type != NULL)
-	  + !!(opt.flags & FLAG_DUMP_BIN) + (opt.handle != ~0U) > 1)
+		+ !!(opt.flags & FLAG_DUMP_BIN) + (opt.handle != ~0U) > 1)
 	{
 		fprintf(stderr, "Options --string, --type, --handle and --dump-bin are mutually exclusive\n");
 		return -1;
@@ -362,10 +363,11 @@ int parse_command_line(int argc, char * const argv[])
 
 	return 0;
 }
+*/
 
 void print_help(void)
 {
-	static const char *help =
+	static const char* help =
 		"Usage: dmidecode [OPTIONS]\n"
 		"Options are:\n"
 		" -d, --dev-mem FILE     Read memory from device FILE (default: " DEFAULT_MEM_DEV ")\n"

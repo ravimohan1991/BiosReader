@@ -36,7 +36,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef BR_LINUX_PLATFORM
 #include <unistd.h>
+#endif // BR_LINUX_PLATFORM
 
 #include "version.h"
 #include "config.h"
@@ -44,7 +47,7 @@
 #include "util.h"
 #include "vpdopt.h"
 
-static void print_entry(const char *name, const u8 *p, size_t len)
+static void print_entry(const char* name, const u8* p, size_t len)
 {
 	size_t i;
 
@@ -61,7 +64,7 @@ static void print_entry(const char *name, const u8 *p, size_t len)
 	printf("\n");
 }
 
-static void dump(const u8 *p, u8 len)
+static void dump(const u8* p, u8 len)
 {
 	int done, i, min;
 
@@ -85,18 +88,18 @@ static void dump(const u8 *p, u8 len)
 	}
 }
 
-static int decode(const u8 *p)
+static int decode(const u8* p)
 {
 	if (p[5] < 0x30)
 		return 0;
 
 	/* XSeries have longer records, exact length seems to vary. */
 	if (!(p[5] >= 0x45 && checksum(p, p[5]))
-	/* Some Netvista seem to work with this. */
-	 && !(checksum(p, 0x30))
-	/* The Thinkpad/Thinkcentre checksum does *not* include the first
-	   13 bytes. */
-	 && !(checksum(p + 0x0D, 0x30 - 0x0D)))
+		/* Some Netvista seem to work with this. */
+		&& !(checksum(p, 0x30))
+		/* The Thinkpad/Thinkcentre checksum does *not* include the first
+		   13 bytes. */
+		&& !(checksum(p + 0x0D, 0x30 - 0x0D)))
 	{
 		/* A few systems have a bad checksum (xSeries 325, 330, 335
 		   and 345 with early BIOS) but the record is otherwise
@@ -109,7 +112,7 @@ static int decode(const u8 *p)
 	{
 		if (opt.string->offset + opt.string->len < p[5])
 			print_entry(NULL, p + opt.string->offset,
-			            opt.string->len);
+				opt.string->len);
 		return 1;
 	}
 
@@ -179,7 +182,7 @@ int main(int argc, char * const argv[])
 		{
 			if (fp % 16 && !(opt.flags & FLAG_QUIET))
 				printf("# Unaligned address (%#x)\n",
-				       0xf0000 + fp);
+					   0xf0000 + fp);
 			if (opt.flags & FLAG_DUMP)
 			{
 				dump(p, p[5]);

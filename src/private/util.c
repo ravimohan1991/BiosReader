@@ -31,7 +31,6 @@
 #include "config.h"
 
 #ifdef USE_MMAP
-#include <sys/mman.h>
 #ifndef MAP_FAILED
 #define MAP_FAILED ((void *) -1)
 #endif /* !MAP_FAILED */
@@ -39,7 +38,16 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#ifdef BR_WINDOWS_PLATFORM
+ //#include "memoryapi.h"
+#endif // BR_WINDOWS_PLATFORM
+
+#ifdef BR_LINUX_PLATFORM
+#include <sys/mman.h>
 #include <unistd.h>
+#endif // BR_LINUX_PLATFORM
+
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -47,9 +55,9 @@
 #include "types.h"
 #include "util.h"
 
-static int myread(int fd, u8 *buf, size_t count, const char *prefix)
+static int myread(int fd, u8* buf, size_t count, const char* prefix)
 {
-	ssize_t r = 1;
+	size_t r = 1;
 	size_t r2 = 0;
 
 	while (r2 != count && r != 0)
@@ -76,7 +84,7 @@ static int myread(int fd, u8 *buf, size_t count, const char *prefix)
 	return 0;
 }
 
-int checksum(const u8 *buf, size_t len)
+int checksum(const u8* buf, size_t len)
 {
 	u8 sum = 0;
 	size_t a;
@@ -95,11 +103,11 @@ int checksum(const u8 *buf, size_t len)
  * Returns a pointer to the allocated buffer, or NULL on error, and
  * sets max_len to the length actually read.
  */
-void *read_file(off_t base, size_t *max_len, const char *filename)
+void* read_file(off_t base, size_t* max_len, const char* filename)
 {
 	struct stat statbuf;
 	int fd;
-	u8 *p;
+	u8* p;
 
 	/*
 	 * Don't print error message on missing file, as we will try to read
@@ -155,13 +163,13 @@ out:
 	return p;
 }
 
-static void safe_memcpy(void *dest, const void *src, size_t n)
+static void safe_memcpy(void* dest, const void* src, size_t n)
 {
 #ifdef USE_SLOW_MEMCPY
 	size_t i;
 
 	for (i = 0; i < n; i++)
-		*((u8 *)dest + i) = *((const u8 *)src + i);
+		*((u8*)dest + i) = *((const u8*)src + i);
 #else
 	memcpy(dest, src, n);
 #endif
@@ -171,14 +179,14 @@ static void safe_memcpy(void *dest, const void *src, size_t n)
  * Copy a physical memory chunk into a memory buffer.
  * This function allocates memory.
  */
-void *mem_chunk(off_t base, size_t len, const char *devmem)
+void* mem_chunk(off_t base, size_t len, const char* devmem)
 {
-	void *p;
+	void* p;
 	int fd;
 #ifdef USE_MMAP
 	struct stat statbuf;
 	off_t mmoffset;
-	void *mmp;
+	void* mmp;
 #endif
 
 	if ((fd = open(devmem, O_RDONLY)) == -1)
@@ -200,7 +208,7 @@ void *mem_chunk(off_t base, size_t len, const char *devmem)
 		perror("stat");
 		goto err_free;
 	}
-
+#ifdef BR_LINUX_PLATFORM
 	/*
 	 * mmap() will fail with SIGBUS if trying to map beyond the end of
 	 * the file.
@@ -217,16 +225,27 @@ void *mem_chunk(off_t base, size_t len, const char *devmem)
 #else
 	mmoffset = base % getpagesize();
 #endif /* _SC_PAGESIZE */
+
 	/*
-	 * Please note that we don't use mmap() for performance reasons here,
-	 * but to workaround problems many people encountered when trying
-	 * to read from /dev/mem using regular read() calls.
-	 */
+		 * Please note that we don't use mmap() for performance reasons here,
+		 * but to workaround problems many people encountered when trying
+		 * to read from /dev/mem using regular read() calls.
+		 */
 	mmp = mmap(NULL, mmoffset + len, PROT_READ, MAP_SHARED, fd, base - mmoffset);
+
+	/*
+	#ifdef BR_WINDOWS_PLATFORM
+		//mmp = VirtualAllocEx();
+		// Well unless I see this interfering in my query, I forestall the Windows equivalence
+		// until desired (funwise)
+		mmp == MAP_FAILED;
+	#endif // BR_WINDOWS_PLATFORM
+	*/
+
 	if (mmp == MAP_FAILED)
 		goto try_read;
 
-	safe_memcpy(p, (u8 *)mmp + mmoffset, len);
+	safe_memcpy(p, (u8*)mmp + mmoffset, len);
 
 	if (munmap(mmp, mmoffset + len) == -1)
 	{
@@ -235,7 +254,7 @@ void *mem_chunk(off_t base, size_t len, const char *devmem)
 	}
 
 	goto out;
-
+#endif // BR_LINUX_PLATFORM
 try_read:
 #endif /* USE_MMAP */
 	if (lseek(fd, base, SEEK_SET) == -1)
@@ -259,9 +278,9 @@ out:
 	return p;
 }
 
-int write_dump(size_t base, size_t len, const void *data, const char *dumpfile, int add)
+int write_dump(size_t base, size_t len, const void* data, const char* dumpfile, int add)
 {
-	FILE *f;
+	FILE* f;
 
 	f = fopen(dumpfile, add ? "r+b" : "wb");
 	if (!f)

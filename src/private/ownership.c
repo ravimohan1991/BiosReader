@@ -32,18 +32,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef BR_LINUX_PLATFORM
 #include <unistd.h>
 #include <getopt.h>
+#endif // BR_LINUX_PLATFORM
 
 #include "version.h"
 #include "config.h"
 #include "types.h"
 #include "util.h"
 
-/* Options are global */
+ /* Options are global */
 struct opt
 {
-	const char *devmem;
+	const char* devmem;
 	unsigned int flags;
 };
 static struct opt opt;
@@ -51,9 +54,9 @@ static struct opt opt;
 #define FLAG_VERSION            (1 << 0)
 #define FLAG_HELP               (1 << 1)
 
-static void ownership(u32 base, const char *pname, const char *devmem)
+static void ownership(u32 base, const char* pname, const char* devmem)
 {
-	u8 *buf;
+	u8* buf;
 	int i;
 
 	/* read the ownership tag */
@@ -77,13 +80,13 @@ static void ownership(u32 base, const char *pname, const char *devmem)
 			if (buf[i] < 32 || (buf[i] >= 127 && buf[i] < 160))
 				buf[i] = '?';
 		}
-		printf("%s\n", (char *)buf);
+		printf("%s\n", (char*)buf);
 	}
 
 	free(buf);
 }
 
-static u32 decode(const u8 *p)
+static u32 decode(const u8* p)
 {
 	int i;
 
@@ -91,9 +94,9 @@ static u32 decode(const u8 *p)
 	for (i = 0; i < p[4]; i++)
 	{
 		if (p[5 + i * 10] != '$'
-		 || !(p[6 + i * 10] >= 'A' && p[6 + i * 10] <= 'Z')
-		 || !(p[7 + i * 10] >= 'A' && p[7 + i * 10] <= 'Z')
-		 || !(p[8 + i * 10] >= 'A' && p[8 + i * 10] <= 'Z'))
+			|| !(p[6 + i * 10] >= 'A' && p[6 + i * 10] <= 'Z')
+			|| !(p[7 + i * 10] >= 'A' && p[7 + i * 10] <= 'Z')
+			|| !(p[8 + i * 10] >= 'A' && p[8 + i * 10] <= 'Z'))
 		{
 			printf("\t Abnormal Entry! Please report. [%02x %02x %02x %02x]\n",
 				p[5 + i * 10], p[6 + i * 10],
@@ -111,6 +114,7 @@ static u32 decode(const u8 *p)
 }
 
 /* Return -1 on error, 0 on success */
+/*
 static int parse_command_line(int argc, char * const argv[])
 {
 	int option;
@@ -140,10 +144,11 @@ static int parse_command_line(int argc, char * const argv[])
 
 	return 0;
 }
+*/
 
 static void print_help(void)
 {
-	static const char *help =
+	static const char* help =
 		"Usage: ownership [OPTIONS]\n"
 		"Options are:\n"
 		" -d, --dev-mem FILE     Read memory from device FILE (default: " DEFAULT_MEM_DEV ")\n"

@@ -28,7 +28,7 @@ struct dmi_header
 	u8 type;
 	u8 length;
 	u16 handle;
-	u8 *data;
+	u8* data;
 };
 
 enum cpuid_type
@@ -44,10 +44,10 @@ enum cpuid_type
 
 extern enum cpuid_type cpuid_type;
 
-int is_printable(const u8 *data, int len);
-const char *dmi_string(const struct dmi_header *dm, u8 s);
-void dmi_print_memory_size(const char *addr, u64 code, int shift);
-void dmi_print_cpuid(void (*print_cb)(const char *name, const char *format, ...),
-		     const char *label, enum cpuid_type sig, const u8 *p);
+int is_printable(const u8* data, int len);
+const char* dmi_string(const struct dmi_header* dm, u8 s);
+void dmi_print_memory_size(const char* addr, u64 code, int shift);
+void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...),
+	const char* label, enum cpuid_type sig, const u8* p);
 
 #endif

@@ -60,18 +60,21 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef BR_LINUX_PLATFORM
 #include <unistd.h>
 #include <getopt.h>
+#endif
 
 #include "version.h"
 #include "config.h"
 #include "types.h"
 #include "util.h"
 
-/* Options are global */
+ /* Options are global */
 struct opt
 {
-	const char *devmem;
+	const char* devmem;
 	unsigned int flags;
 	unsigned char pir;
 };
@@ -85,25 +88,24 @@ static struct opt opt;
 
 struct bios_entry
 {
-	const char *anchor;
+	const char* anchor;
 	size_t anchor_len; /* computed */
 	off_t low_address;
 	off_t high_address;
-	size_t (*length)(const u8 *);
+	size_t(*length)(const u8*);
 	int (*decode)(const u8*, size_t);
 };
-
 
 /*
  * SMBIOS (System Management BIOS)
  */
 
-static size_t smbios3_length(const u8 *p)
+static size_t smbios3_length(const u8* p)
 {
 	return p[0x06];
 }
 
-static int smbios3_decode(const u8 *p, size_t len)
+static int smbios3_decode(const u8* p, size_t len)
 {
 	if (len < 0x18 || !checksum(p, p[0x06]))
 		return 0;
@@ -118,17 +120,17 @@ static int smbios3_decode(const u8 *p, size_t len)
 	return 1;
 }
 
-static size_t smbios_length(const u8 *p)
+static size_t smbios_length(const u8* p)
 {
 	return p[0x05] == 0x1E ? 0x1F : p[0x05];
 }
 
-static int smbios_decode(const u8 *p, size_t len)
+static int smbios_decode(const u8* p, size_t len)
 {
 	// The C library function int memcmp(const void *str1, const void *str2, size_t n)) compares the first n bytes of memory area str1 and memory area str2.
 	if (len < 0x1F || !checksum(p, p[0x05])
-	 || memcmp("_DMI_", p + 0x10, 5) != 0
-	 || !checksum(p + 0x10, 0x0F))
+		|| memcmp("_DMI_", p + 0x10, 5) != 0
+		|| !checksum(p + 0x10, 0x0F))
 		return 0;
 
 	printf("SMBIOS %u.%u present.\n",
@@ -145,20 +147,20 @@ static int smbios_decode(const u8 *p, size_t len)
 	return 1;
 }
 
-static size_t dmi_length(const u8 *p)
+static size_t dmi_length(const u8* p)
 {
-	(void) p;
+	(void)p;
 
 	return 0x0F;
 }
 
-static int dmi_decode(const u8 *p, size_t len)
+static int dmi_decode(const u8* p, size_t len)
 {
 	if (len < 0x0F || !checksum(p, len))
 		return 0;
 
 	printf("Legacy DMI %u.%u present.\n",
-		p[0x0E]>>4, p[0x0E] & 0x0F);
+		p[0x0E] >> 4, p[0x0E] & 0x0F);
 	printf("\tStructure Table Length: %u bytes\n",
 		WORD(p + 0x06));
 	printf("\tStructure Table Address: 0x%08X\n",
@@ -173,12 +175,12 @@ static int dmi_decode(const u8 *p, size_t len)
  * SYSID
  */
 
-static size_t sysid_length(const u8 *p)
+static size_t sysid_length(const u8* p)
 {
 	return WORD(p + 0x08);
 }
 
-static int sysid_decode(const u8 *p, size_t len)
+static int sysid_decode(const u8* p, size_t len)
 {
 	if (len < 0x11 || !checksum(p, WORD(p + 0x08)))
 		return 0;
@@ -198,14 +200,14 @@ static int sysid_decode(const u8 *p, size_t len)
  * PnP
  */
 
-static size_t pnp_length(const u8 *p)
+static size_t pnp_length(const u8* p)
 {
 	return p[0x05];
 }
 
-static const char *pnp_event_notification(u8 code)
+static const char* pnp_event_notification(u8 code)
 {
-	static const char *notification[] = {
+	static const char* notification[] = {
 		"Not Supported", /* 0x0 */
 		"Polling",
 		"Asynchronous",
@@ -215,7 +217,7 @@ static const char *pnp_event_notification(u8 code)
 	return notification[code];
 }
 
-static int pnp_decode(const u8 *p, size_t len)
+static int pnp_decode(const u8* p, size_t len)
 {
 	if (len < 0x21 || !checksum(p, p[0x05]))
 		return 0;
@@ -248,25 +250,25 @@ static int pnp_decode(const u8 *p, size_t len)
  * ACPI
  */
 
-static size_t acpi_length(const u8 *p)
+static size_t acpi_length(const u8* p)
 {
 	return p[15] == 2 ? 36 : 20;
 }
 
-static const char *acpi_revision(u8 code)
+static const char* acpi_revision(u8 code)
 {
 	switch (code)
 	{
-		case 0:
-			return " 1.0";
-		case 2:
-			return " 2.0";
-		default:
-			return "";
+	case 0:
+		return " 1.0";
+	case 2:
+		return " 2.0";
+	default:
+		return "";
 	}
 }
 
-static int acpi_decode(const u8 *p, size_t len)
+static int acpi_decode(const u8* p, size_t len)
 {
 	if (len < 20 || !checksum(p, 20))
 		return 0;
@@ -296,12 +298,12 @@ static int acpi_decode(const u8 *p, size_t len)
  * Sony
  */
 
-static size_t sony_length(const u8 *p)
+static size_t sony_length(const u8* p)
 {
 	return p[0x05];
 }
 
-static int sony_decode(const u8 *p, size_t len)
+static int sony_decode(const u8* p, size_t len)
 {
 	if (!checksum(p, len))
 		return 0;
@@ -315,12 +317,12 @@ static int sony_decode(const u8 *p, size_t len)
  * BIOS32
  */
 
-static size_t bios32_length(const u8 *p)
+static size_t bios32_length(const u8* p)
 {
 	return p[0x09] << 4;
 }
 
-static int bios32_decode(const u8 *p, size_t len)
+static int bios32_decode(const u8* p, size_t len)
 {
 	if (len < 0x0A || !checksum(p, p[0x09] << 4))
 		return 0;
@@ -360,12 +362,12 @@ static void pir_slot_number(u8 code)
 		printf(" slot %u", code);
 }
 
-static size_t pir_length(const u8 *p)
+static size_t pir_length(const u8* p)
 {
 	return WORD(p + 6);
 }
 
-static void pir_link_bitmap(char letter, const u8 *p)
+static void pir_link_bitmap(char letter, const u8* p)
 {
 	if (p[0] == 0) /* Not connected */
 		return;
@@ -375,7 +377,7 @@ static void pir_link_bitmap(char letter, const u8 *p)
 	printf("\n");
 }
 
-static int pir_decode(const u8 *p, size_t len)
+static int pir_decode(const u8* p, size_t len)
 {
 	int i, n;
 
@@ -385,7 +387,7 @@ static int pir_decode(const u8 *p, size_t len)
 	printf("PCI Interrupt Routing %u.%u present.\n",
 		p[5], p[4]);
 	printf("\tRouter Device: %02x:%02x.%1x\n",
-		p[8], p[9]>>3, p[9] & 0x07);
+		p[8], p[9] >> 3, p[9] & 0x07);
 	printf("\tExclusive IRQs:");
 	pir_irqs(WORD(p + 10));
 	printf("\n");
@@ -418,15 +420,15 @@ static int pir_decode(const u8 *p, size_t len)
  * Compaq-specific entries
  */
 
-static size_t compaq_length(const u8 *p)
+static size_t compaq_length(const u8* p)
 {
 	return p[4] * 10 + 5;
 }
 
-static int compaq_decode(const u8 *p, size_t len)
+static int compaq_decode(const u8* p, size_t len)
 {
 	unsigned int i;
-	(void) len;
+	(void)len;
 
 	printf("Compaq-specific entries present.\n");
 
@@ -439,9 +441,9 @@ static int compaq_decode(const u8 *p, size_t len)
 		 * right above, so it can't be wrong.
 		 */
 		if (p[5 + i * 10] != '$'
-		 || !(p[6 + i * 10] >= 'A' && p[6 + i * 10] <= 'Z')
-		 || !(p[7 + i * 10] >= 'A' && p[7 + i * 10] <= 'Z')
-		 || !(p[8 + i * 10] >= 'A' && p[8 + i * 10] <= 'Z'))
+			|| !(p[6 + i * 10] >= 'A' && p[6 + i * 10] <= 'Z')
+			|| !(p[7 + i * 10] >= 'A' && p[7 + i * 10] <= 'Z')
+			|| !(p[8 + i * 10] >= 'A' && p[8 + i * 10] <= 'Z'))
 		{
 			printf("\t Abnormal entry! Please report. [%02X %02X "
 				"%02X %02X]\n", p[5 + i * 10], p[6 + i * 10],
@@ -465,7 +467,7 @@ static int compaq_decode(const u8 *p, size_t len)
  * VPD (vital product data, IBM-specific)
  */
 
-static void vpd_print_entry(const char *name, const u8 *p, size_t len)
+static void vpd_print_entry(const char* name, const u8* p, size_t len)
 {
 	size_t i;
 
@@ -476,22 +478,22 @@ static void vpd_print_entry(const char *name, const u8 *p, size_t len)
 	printf("\n");
 }
 
-static size_t vpd_length(const u8 *p)
+static size_t vpd_length(const u8* p)
 {
 	return p[5];
 }
 
-static int vpd_decode(const u8 *p, size_t len)
+static int vpd_decode(const u8* p, size_t len)
 {
 	if (len < 0x30)
 		return 0;
 
 	/* XSeries have longer records. */
 	if (!(len >= 0x45 && checksum(p, len))
-	/* Some Netvista seem to work with this. */
-	 && !checksum(p, 0x30)
-	/* The Thinkpad checksum does *not* include the first 13 bytes. */
-	 && !checksum(p + 0x0D, 0x30 - 0x0D))
+		/* Some Netvista seem to work with this. */
+		&& !checksum(p, 0x30)
+		/* The Thinkpad checksum does *not* include the first 13 bytes. */
+		&& !checksum(p + 0x0D, 0x30 - 0x0D))
 		return 0;
 
 	printf("VPD present.\n");
@@ -513,9 +515,9 @@ static int vpd_decode(const u8 *p, size_t len)
  * Fujitsu application panel
  */
 
-static size_t fjkeyinf_length(const u8 *p)
+static size_t fjkeyinf_length(const u8* p)
 {
-	(void) p;
+	(void)p;
 	/*
 	 * We don't know at this point, it's somewhere between 12 and 32.
 	 * So we return the max, it shouldn't hurt.
@@ -523,10 +525,10 @@ static size_t fjkeyinf_length(const u8 *p)
 	return 32;
 }
 
-static int fjkeyinf_decode(const u8 *p, size_t len)
+static int fjkeyinf_decode(const u8* p, size_t len)
 {
 	int i;
-	(void) len;
+	(void)len;
 
 	printf("Fujitsu application panel present.\n");
 
@@ -535,7 +537,7 @@ static int fjkeyinf_decode(const u8 *p, size_t len)
 		if (*(p + 8 + i * 4) == 0)
 			return 1;
 		printf("\tDevice %d: type %u, chip %u", i + 1,
-		       *(p + 8 + i * 4), *(p + 8 + i * 4 + 2));
+			*(p + 8 + i * 4), *(p + 8 + i * 4 + 2));
 		if (*(p + 8 + i * 4 + 1)) /* Access method */
 			printf(", SMBus address 0x%x",
 				*(p + 8 + i * 4 + 3) >> 1);
@@ -549,12 +551,12 @@ static int fjkeyinf_decode(const u8 *p, size_t len)
  * Intel Multiprocessor
  */
 
-static size_t mp_length(const u8 *p)
+static size_t mp_length(const u8* p)
 {
 	return 16 * p[8];
 }
 
-static int mp_decode(const u8 *p, size_t len)
+static int mp_decode(const u8* p, size_t len)
 {
 	if (!checksum(p, len))
 		return 0;
@@ -595,7 +597,7 @@ static struct bios_entry bios_entries[] = {
 };
 
 /* Believe it or not, this is significantly faster than memcmp */
-static int anchor_match(const struct bios_entry *entry, const char *p)
+static int anchor_match(const struct bios_entry* entry, const char* p)
 {
 	size_t i;
 
@@ -606,11 +608,13 @@ static int anchor_match(const struct bios_entry *entry, const char *p)
 	return 1;
 }
 
+// Seems like platform specific part
 /* Return -1 on error, 0 on success */
-static int parse_command_line(int argc, char * const argv[])
+/*
+static int parse_command_line(int argc, char* const argv[])
 {
-	int option;
-	const char *optstring = "d:hV";
+	int optionVariable;
+	const char* optstring = "d:hV";
 	struct option longopts[] = {
 		{ "dev-mem", required_argument, NULL, 'd' },
 		{ "pir", required_argument, NULL, 'P' },
@@ -619,32 +623,32 @@ static int parse_command_line(int argc, char * const argv[])
 		{ NULL, 0, NULL, 0 }
 	};
 
-	while ((option = getopt_long(argc, argv, optstring, longopts, NULL)) != -1)
-		switch (option)
+	while ((optionVariable = getopt_long(argc, argv, optstring, longopts, NULL)) != -1)
+		switch (optionVariable)
 		{
-			case 'd':
-				opt.devmem = optarg;
-				break;
-			case 'P':
-				if (strcmp(optarg, "full") == 0)
-					opt.pir = PIR_FULL;
-				break;
-			case 'h':
-				opt.flags |= FLAG_HELP;
-				break;
-			case 'V':
-				opt.flags |= FLAG_VERSION;
-				break;
-			case '?':
-				return -1;
+		case 'd':
+			opt.devmem = optarg;
+			break;
+		case 'P':
+			if (strcmp(optarg, "full") == 0)
+				opt.pir = PIR_FULL;
+			break;
+		case 'h':
+			opt.flags |= FLAG_HELP;
+			break;
+		case 'V':
+			opt.flags |= FLAG_VERSION;
+			break;
+		case '?':
+			return -1;
 		}
 
 	return 0;
 }
-
+*/
 static void print_help(void)
 {
-	static const char *help =
+	static const char* help =
 		"Usage: biosdecode [OPTIONS]\n"
 		"Options are:\n"
 		" -d, --dev-mem FILE     Read memory from device FILE (default: " DEFAULT_MEM_DEV ")\n"

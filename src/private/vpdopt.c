@@ -20,26 +20,27 @@
  */
 
 #include <stdio.h>
-#include <strings.h>
-#include <stdlib.h>
-#include <getopt.h>
 
+#ifdef BR_LINUX_PLATFORM
+#include <getopt.h>
+#include <strings.h>
+#endif // BR_LINUX_PLATFORM
+
+#include <stdlib.h>
 #include "config.h"
 #include "util.h"
 #include "vpdopt.h"
 
-
-/* Options are global */
+ /* Options are global */
 struct opt opt;
-
 
 /*
  * Handling of option --string
  */
 
-/* This lookup table could admittedly be reworked for improved performance.
-   Due to the low count of items in there at the moment, it did not seem
-   worth the additional code complexity though. */
+ /* This lookup table could admittedly be reworked for improved performance.
+	Due to the low count of items in there at the moment, it did not seem
+	worth the additional code complexity though. */
 static const struct string_keyword opt_string_keyword[] = {
 	{ "bios-build-id", 0x0D, 9 },
 	{ "box-serial-number", 0x16, 7 },
@@ -59,7 +60,7 @@ static void print_opt_string_list(void)
 	}
 }
 
-static int parse_opt_string(const char *arg)
+static int parse_opt_string(const char* arg)
 {
 	unsigned int i;
 
@@ -69,7 +70,7 @@ static int parse_opt_string(const char *arg)
 		return -1;
 	}
 
-	for (i = 0; i<ARRAY_SIZE(opt_string_keyword); i++)
+	for (i = 0; i < ARRAY_SIZE(opt_string_keyword); i++)
 	{
 		if (!strcasecmp(arg, opt_string_keyword[i].keyword))
 		{
@@ -83,77 +84,76 @@ static int parse_opt_string(const char *arg)
 	return -1;
 }
 
-
 /*
  * Command line options handling
  */
 
-/* Return -1 on error, 0 on success */
-/*
-int parse_command_line(int argc, char * const argv[])
-{
-	int option;
-	const char *optstring = "d:hs:uV";
-	struct option longopts[] = {
-		{ "dev-mem", required_argument, NULL, 'd' },
-		{ "help", no_argument, NULL, 'h' },
-		{ "string", required_argument, NULL, 's' },
-		{ "dump", no_argument, NULL, 'u' },
-		{ "version", no_argument, NULL, 'V' },
-		{ NULL, 0, NULL, 0 }
-	};
+ /* Return -1 on error, 0 on success */
+ /*
+ int parse_command_line(int argc, char * const argv[])
+ {
+	 int option;
+	 const char *optstring = "d:hs:uV";
+	 struct option longopts[] = {
+		 { "dev-mem", required_argument, NULL, 'd' },
+		 { "help", no_argument, NULL, 'h' },
+		 { "string", required_argument, NULL, 's' },
+		 { "dump", no_argument, NULL, 'u' },
+		 { "version", no_argument, NULL, 'V' },
+		 { NULL, 0, NULL, 0 }
+	 };
 
-	while ((option = getopt_long(argc, argv, optstring, longopts, NULL)) != -1)
-		switch (option)
-		{
-			case 'd':
-				opt.devmem = optarg;
-				break;
-			case 'h':
-				opt.flags |= FLAG_HELP;
-				break;
-			case 's':
-				if (parse_opt_string(optarg) < 0)
-					return -1;
-				opt.flags |= FLAG_QUIET;
-				break;
-			case 'u':
-				opt.flags |= FLAG_DUMP;
-				break;
-			case 'V':
-				opt.flags |= FLAG_VERSION;
-				break;
-			case '?':
-				switch (optopt)
-				{
-					case 's':
-						fprintf(stderr, "String keyword expected\n");
-						print_opt_string_list();
-						break;
-				}
-				return -1;
-		}
+	 while ((option = getopt_long(argc, argv, optstring, longopts, NULL)) != -1)
+		 switch (option)
+		 {
+			 case 'd':
+				 opt.devmem = optarg;
+				 break;
+			 case 'h':
+				 opt.flags |= FLAG_HELP;
+				 break;
+			 case 's':
+				 if (parse_opt_string(optarg) < 0)
+					 return -1;
+				 opt.flags |= FLAG_QUIET;
+				 break;
+			 case 'u':
+				 opt.flags |= FLAG_DUMP;
+				 break;
+			 case 'V':
+				 opt.flags |= FLAG_VERSION;
+				 break;
+			 case '?':
+				 switch (optopt)
+				 {
+					 case 's':
+						 fprintf(stderr, "String keyword expected\n");
+						 print_opt_string_list();
+						 break;
+				 }
+				 return -1;
+		 }
 
-	if ((opt.flags & FLAG_DUMP) && opt.string != NULL)
-	{
-		fprintf(stderr, "Options --string and --dump are mutually exclusive\n");
-		return -1;
-	}
+	 if ((opt.flags & FLAG_DUMP) && opt.string != NULL)
+	 {
+		 fprintf(stderr, "Options --string and --dump are mutually exclusive\n");
+		 return -1;
+	 }
 
-	return 0;
-}
+	 return 0;
+ }
 
-void print_help(void)
-{
-	static const char *help =
-		"Usage: vpddecode [OPTIONS]\n"
-		"Options are:\n"
-		" -d, --dev-mem FILE     Read memory from device FILE (default: " DEFAULT_MEM_DEV ")\n"
-		" -h, --help             Display this help text and exit\n"
-		" -s, --string KEYWORD   Only display the value of the given VPD string\n"
-		" -u, --dump             Do not decode the VPD records\n"
-		" -V, --version          Display the version and exit\n";
+ void print_help(void)
+ {
+	 static const char *help =
+		 "Usage: vpddecode [OPTIONS]\n"
+		 "Options are:\n"
+		 " -d, --dev-mem FILE     Read memory from device FILE (default: " DEFAULT_MEM_DEV ")\n"
+		 " -h, --help             Display this help text and exit\n"
+		 " -s, --string KEYWORD   Only display the value of the given VPD string\n"
+		 " -u, --dump             Do not decode the VPD records\n"
+		 " -V, --version          Display the version and exit\n";
 
-	printf("%s", help);
-}
-*/
+	 printf("%s", help);
+ }
+ */
