@@ -22,6 +22,8 @@ BiosReader does not bother your hardware, it only reports what the BIOS told it 
 
 Please note that this project is extention and, supposabily, heavy modification of [demidecode](https://www.nongnu.org/dmidecode/). Therefore you can identify, and, possibly mingle with the code, if familiar already.
 
+I don't think the authors of demidecode (nor should they) endorse this project. If you have any concerns or suggestions, they should be directed towards me. 
+
 
 INSTALLATION
 ------------
@@ -30,11 +32,16 @@ Install [CMake](https://cmake.org/) and rest is cakewalk.
 
 THANKS
 ------
-DEVELOPER AND MAINTAINER
-Jean Delvare <jdelvare@suse.de>
+- to devs of [demidecode](https://www.nongnu.org/dmidecode/)
+  
+  DEVELOPER AND MAINTAINER
+  Jean Delvare <jdelvare@suse.de>
 
-ORIGINAL AUTHORS
-Alan Cox <alan@redhat.com>
-Jean Delvare <jdelvare@suse.de>
+  ORIGINAL AUTHORS
+  Alan Cox <alan@redhat.com>
+  Jean Delvare <jdelvare@suse.de>
 
-Rest of the contributers are named [here](http://git.savannah.gnu.org/cgit/dmidecode.git/plain/AUTHORS).
+  Rest of the contributers are named [here](http://git.savannah.gnu.org/cgit/dmidecode.git/plain/AUTHORS).
+
+- India
+- My classical physics teacher
