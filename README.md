@@ -37,6 +37,4 @@ ORIGINAL AUTHORS
 Alan Cox <alan@redhat.com>
 Jean Delvare <jdelvare@suse.de>
 
-Rest of the contributers are named here.
-
-
+Rest of the contributers are named [here](http://git.savannah.gnu.org/cgit/dmidecode.git/plain/AUTHORS).
