@@ -66,6 +66,7 @@
 
 #ifdef BR_WINDOWS_PLATFORM
 #include <ws2tcpip.h>
+#include <windows.h>
 
  // Some Windows specific defines (not found in Linux)
 #define strncasecmp(x,y,z) _strnicmp(x,y,z)
@@ -2432,7 +2433,7 @@ static void dmi_oem_strings(const struct dmi_header* h)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf_s(attr, "String %hhu", (u8)i);
+		sprintf(attr, "String %hhu", (u8)i);
 		pr_attr(attr, "%s", dmi_string(h, i));
 	}
 }
@@ -2450,7 +2451,7 @@ static void dmi_system_configuration_options(const struct dmi_header* h)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf_s(attr, "Option %hhu", (u8)i);
+		sprintf(attr, "Option %hhu", (u8)i);
 		pr_attr(attr, "%s", dmi_string(h, i));
 	}
 }
@@ -2893,7 +2894,7 @@ static void dmi_memory_device_type_detail(u16 code)
 		list[0] = '\0';
 		for (i = 1; i <= 15; i++)
 			if (code & (1 << i))
-				off += sprintf_s(list + off, off ? " %s" : "%s",
+				off += sprintf(list + off, off ? " %s" : "%s",
 					detail[i - 1]);
 		pr_attr("Type Detail", list);
 	}
@@ -5956,6 +5957,176 @@ static int address_from_efi(off_t* address)
 	return ret;
 }
 
+//////////////////////////////// WINDOWS Functions ////////////////////////////
+#ifdef BR_WINDOWS_PLATFORM
+
+/*
+ * Counts the number of SMBIOS structures present in
+ * the SMBIOS table.
+ *
+ * buff - Pointer that receives the SMBIOS Table address.
+ *        This will be the address of the BYTE array from
+ *        the RawSMBIOSData struct.
+ *
+ * len - The length of the SMBIOS Table pointed by buff.
+ *
+ * return - The number of SMBIOS strutctures.
+ *
+ * Remarks:
+ * The SMBIOS Table Entry Point has this information,
+ * however the GetSystemFirmwareTable API doesn't
+ * return all fields from the Entry Point, and
+ * DMIDECODE uses this value as a parameter for
+ * dmi_table function. This is the reason why
+ * this function was made.
+ *
+ * Hugo Weber address@hidden
+ */
+
+int count_smbios_structures(u8* buff, u32 len)
+{
+	int icount = 0;//counts the strutures
+	u8* offset = buff;//points to the actual address in the buff that's been checked
+	struct dmi_header* header = NULL;//header of the struct been read to get the length to increase the offset
+
+	//searches structures on the whole SMBIOS Table
+	while (offset < (buff + len))
+	{
+		//get the header to read te length and to increase the offset
+		header = (struct dmi_header*)offset;
+		offset += header->length;
+
+		icount++;
+
+		/*
+		 * increses the offset to point to the next header that's
+		 * after the strings at the end of the structure.
+		 */
+		while ((*(WORD*)offset != 0) && (offset < (buff + len)))
+		{
+			offset++;
+		}
+
+		/*
+		 * Points to the next stucture thas after two null BYTEs
+		 * at the end of the strings.
+		 */
+		offset += 2;
+	}
+
+	return icount;
+}
+
+/*
+ * Checks what platform its running.
+ * This code doesn't run on windows 9x/Me, only windows NT or newer
+ * Well for newer part, we will be doing hit and trials because we
+ * don't possess arbitrary magical powers (yet?)
+ *
+ * return - WIN_UNSUPORTED if its running on windows 9x/Me
+ *        - WIN_NT_2K_XP if its running on windows NT 2k or XP
+ *        - WIN_2003_VISTA if its running on windows 2003 or Vista
+ *        - WIN_10 if it is running on windows 10
+ *
+ * Remarks:
+ * Windows 2003 and Vista blocked access to physical memory and
+ * requires the use of GetSystemFirmwareTable API in order to
+ * get the SMBIOS table.
+ *
+ * Windows NT 2k and XP have to map physical memory and search
+ * for the SMBIOS table entry point, as its done on the other
+ * systems.
+ */
+int get_windows_platform()
+{
+	OSVERSIONINFO version;
+	version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
+	GetVersionEx(&version);
+
+	switch (version.dwPlatformId)
+	{
+	case VER_PLATFORM_WIN32_NT:
+
+		//printf("Major Version: %i\n", version.dwMajorVersion);
+		//printf("Minor Version: %i\n", version.dwMinorVersion);
+
+		if ((version.dwMajorVersion >= 6) || (version.dwMajorVersion = 5 && version.dwMinorVersion >= 2))
+		{
+			// Hehe, so much specifity
+			if (version.dwMajorVersion == 6 && version.dwMinorVersion == 2)
+			{
+				return WIN_10;
+			}
+
+			// We can differentiate Vista with later versions, later
+			return WIN_2003_VISTA;
+		}
+		else
+		{
+			return WIN_NT_2K_XP;
+		}
+		break;
+
+	case VER_PLATFORM_WIN32_WINDOWS:
+		printf("Windows major version %d", version.dwMajorVersion);
+		break;
+
+	default:
+		printf("Welp not yet!");
+		return WIN_UNSUPORTED;
+		break;
+	}
+}
+
+/*
+ * Gets the raw SMBIOS table. This function only works
+ * on Windows 2003 and above. Since Windows 2003 SP1
+ * Microsoft blocks access to physical memory.
+ *
+ * return - pointer to the SMBIOS table returned
+ * by GetSystemFirmwareTable.
+ *
+ * see RawSMBIOSData on winsmbios.h
+ *
+ * Hugo Weber address@hidden
+ */
+
+ /*
+  * Kernel-mode device drivers can call the IoWmiOpenBlock() and the IoWMIQueryAllData() functions
+  * to retrieve a buffer that contains the raw contents of the SMBIOS table data. Specifically, this
+  * buffer contains the same SMBIOS data as the buffer returned by calling the GetSystemFirmwareTable()
+  * function with the raw SMBIOS (RSMB) table provider.
+  *
+  * The returned buffer has the following data:
+  *
+  *	BYTE		Used20CallingMethod
+  *	BYTE		SMBIOSMajorVersion
+  *	BYTE		SMBIOSMinorVersion
+  *	BYTE		DmiRevision
+  *	DWORD		Length
+  *	BYTE[]		SMBIOSTableData
+
+  * Each value in the buffer return corresponds to the individual properties stored in the MSSMBios_RawSMBiosTables WMI class.
+  * The SMBIOSTableData property contains the entire SMBIOS data table, except for the SMBIOS structure table entry point.
+  * You can achieve access to the SMBIOS data in the MSSMBios_RawSMBiosTables class by using the class GUID, {8F680850-A584-11d1-BF38-00A0C9062910}.
+ */
+
+PRawSMBIOSData get_raw_smbios_table(void)
+{
+	void* buf = NULL;
+	u32 size = 0;
+
+	if (1)//get_windows_platform() == WIN_2003_VISTA)
+	{
+		size = GetSystemFirmwareTable('RSMB', 0, buf, size);
+		buf = (void*)malloc(size);
+		GetSystemFirmwareTable('RSMB', 0, buf, size);
+	}
+
+	return buf;
+}
+#endif // BR_WINDOWS_PLATFORM
+
 int main(int argc, char* const argv[])
 {
 	int returnValue = 0;                /* Returned value of this function */
@@ -6153,8 +6324,22 @@ memory_scan:
 				goto done;
 			}
 		}
-}
+	}
 #endif
+
+#ifdef BR_WINDOWS_PLATFORM
+	PRawSMBIOSData rawInformation = get_raw_smbios_table();
+
+	// Now we shall attempt parsing of the information into Human readable data
+
+	// first let me see how many structures
+	u16 structuresNumber = count_smbios_structures(rawInformation, rawInformation->Length);
+	printf("Number of structures found %i \n", structuresNumber);
+
+	u8* data = rawInformation->SMBIOSTableData;
+
+	dmi_table_decode(data, rawInformation->Length, structuresNumber, 8, 0);
+#endif // BR_WINDOS_PLATFORM
 
 done:
 	if (!found && !(opt.flags & FLAG_QUIET))

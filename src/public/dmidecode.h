@@ -23,6 +23,34 @@
 
 #include "types.h"
 
+enum OperatingSystem
+{
+	NotKnown = 0,
+	Windows = 1,
+	MacOS = 2,
+	Linux = 3
+};
+
+#define WIN_UNSUPORTED        (0 << 1)
+#define WIN_NT_2K_XP          (1 << 1)
+#define WIN_2003_VISTA        (1 << 2)
+#define WIN_10                (1 << 3)
+
+#ifdef BR_WINDOWS_PLATFORM
+/*
+ * Struct needed to get the SMBIOS table using GetSystemFirmwareTable API.
+ */
+typedef struct _RawSMBIOSData
+{
+	u8	Used20CallingMethod;
+	u8	SMBIOSMajorVersion;
+	u8	SMBIOSMinorVersion;
+	u8	DmiRevision;
+	u32	Length;
+	u8	SMBIOSTableData[];
+} RawSMBIOSData, * PRawSMBIOSData;
+#endif // BR_WINDOWS_PLATFORM
+
 struct dmi_header
 {
 	u8 type;
@@ -49,5 +77,12 @@ const char* dmi_string(const struct dmi_header* dm, u8 s);
 void dmi_print_memory_size(const char* addr, u64 code, int shift);
 void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...),
 	const char* label, enum cpuid_type sig, const u8* p);
+
+#ifdef BR_WINDOWS_PLATFORM
+int get_windows_platform(void);
+RawSMBIOSData* get_raw_smbios_table(void);
+//int count_smbios_structures(const void* buff, u32 len);
+void* mem_chunk_win(size_t base, size_t len);
+#endif
 
 #endif
