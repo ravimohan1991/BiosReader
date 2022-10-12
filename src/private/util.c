@@ -43,7 +43,7 @@
  //#include "memoryapi.h"
 #endif // BR_WINDOWS_PLATFORM
 
-#ifdef BR_LINUX_PLATFORM
+#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
 #include <sys/mman.h>
 #include <unistd.h>
 #endif // BR_LINUX_PLATFORM
@@ -55,29 +55,43 @@
 #include "types.h"
 #include "util.h"
 
-static int myread(int fd, u8* buf, size_t count, const char* prefix)
+/* ******************************************************************************************************
+ * myread: an attempt to read rSize bytes from the fileName associated with the open file descriptor,
+ * fildes, into the buffer.
+ * @param fildes         the open file descriptor
+ * @param buffer         the buffer to write into
+ * @param rSize          the number of readable bytes to be read
+ * @param fileName       the file being read
+ * @return int           0 for success and -1 for faliure
+ * ******************************************************************************************************
+ */
+
+static int myread(int fildes, u8* buffer, size_t rSize, const char* fileName)
 {
 	size_t r = 1;
 	size_t r2 = 0;
 
-	while (r2 != count && r != 0)
+	while (r2 != rSize && r != 0)
 	{
-		r = read(fd, buf + r2, count - r2);
+		// r = the total number of bytes actually read
+		r = read(fildes, buffer + r2, rSize - r2);
 		if (r == -1)
 		{
 			if (errno != EINTR)
 			{
-				perror(prefix);
+				perror(fileName);
 				return -1;
 			}
 		}
 		else
+		{
 			r2 += r;
+		}
 	}
 
-	if (r2 != count)
+	if (r2 != rSize)
 	{
-		fprintf(stderr, "%s: Unexpected end of file\n", prefix);
+		fprintf(stderr, "%s: Unexpected end of file\n", fileName);
 		return -1;
 	}
 

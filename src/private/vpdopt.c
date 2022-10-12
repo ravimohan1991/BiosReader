@@ -21,7 +21,7 @@
 
 #include <stdio.h>
 
-#ifdef BR_LINUX_PLATFORM
+#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
 #include <getopt.h>
 #include <strings.h>
 #endif // BR_LINUX_PLATFORM

@@ -8,7 +8,7 @@
 # Some defines
 # add_compile_definitions(IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
 
-# Platform specific defines
+# Platform specific defines and context setup
 # NOTE: These defines transcend libraries
 if(WIN32)
     add_compile_definitions(BR_WINDOWS_PLATFORM)
@@ -20,6 +20,8 @@ elseif(UNIX AND NOT APPLE)
     add_compile_definitions(BR_LINUX_PLATFORM)
 elseif(APPLE)
     add_compile_definitions(BR_MAC_PLATFORM)
+    find_library(IOKit IOKit)
+    find_library(CoreServices CoreServices)
 endif()
 
 # Configuration specific defines/settings
@@ -46,6 +48,8 @@ add_executable(${APPLICATION_NAME} ${CFILES} ${HEADERFILES})
 
 if(WIN32)
     target_link_libraries(${APPLICATION_NAME} PUBLIC Ws2_32.lib)
+elseif(APPLE)
+    target_link_libraries(${APPLICATION_NAME} PUBLIC ${CoreServices} ${IOKit})
 endif()
 
 target_include_directories(${APPLICATION_NAME}

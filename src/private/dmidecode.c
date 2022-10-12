@@ -60,6 +60,15 @@
  *    https://www.dmtf.org/sites/default/files/DSP0270_1.0.1.pdf
  */
 
+#include "version.h"
+#include "config.h"
+#include "types.h"
+#include "util.h"
+#include "dmidecode.h"
+#include "dmiopt.h"
+#include "dmioem.h"
+#include "dmioutput.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -73,26 +82,28 @@
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 #endif // !BR_WINDOWS_PLATFORM
 
-#ifdef BR_LINUX_PLATFORM
+#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
 #include <strings.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #endif
 
+#if defined BR_MAC_PLATFORM
+#include <Carbon/Carbon.h>
+#include <IOKit/hid/IOHIDKeys.h> // For HUMAN INTERFACE DEVICES
+#include <IOKit/serial/IOSerialKeys.h>
+#include <MacTypes.h>
+#include <CoreFoundation/CFBase.h>
+#include "biosreaderformac.h"
+//#include <Foundation/Foundation.h>
+#endif
+
+
 #ifdef __FreeBSD__
 #include <errno.h>
 #include <kenv.h>
 #endif
-
-#include "version.h"
-#include "config.h"
-#include "types.h"
-#include "util.h"
-#include "dmidecode.h"
-#include "dmiopt.h"
-#include "dmioem.h"
-#include "dmioutput.h"
 
 #define out_of_spec "<OUT OF SPEC>"
 static const char* bad_index = "<BAD INDEX>";
@@ -103,6 +114,7 @@ enum cpuid_type cpuid_type = cpuid_none;
 
 #define FLAG_NO_FILE_OFFSET     (1 << 0)
 #define FLAG_STOP_AT_EOT        (1 << 1)
+#define FLAG_FROM_API           (1 << 2)
 
 #define SYS_FIRMWARE_DIR "/sys/firmware/dmi/tables"
 #define SYS_ENTRY_FILE SYS_FIRMWARE_DIR "/smbios_entry_point"
@@ -2635,10 +2647,10 @@ static void dmi_event_log_descriptors(u8 count, u8 len, const u8* p)
 	{
 		if (len >= 0x02)
 		{
-			sprintf_s(attr, "Descriptor %d", i + 1);
+			sprintf(attr, "Descriptor %d", i + 1);
 			pr_attr(attr, "%s",
 				dmi_event_log_descriptor_type(p[i * len]));
-			sprintf_s(attr, "Data Format %d", i + 1);
+			sprintf(attr, "Data Format %d", i + 1);
 			pr_attr(attr, "%s",
 				dmi_event_log_descriptor_format(p[i * len + 1]));
 		}
@@ -2956,7 +2968,7 @@ static void dmi_memory_operating_mode_capability(u16 code)
 		list[0] = '\0';
 		for (i = 1; i <= 5; i++)
 			if (code & (1 << i))
-				off += sprintf_s(list + off, off ? " %s" : "%s",
+				off += sprintf(list + off, off ? " %s" : "%s",
 					mode[i - 1]);
 		pr_attr("Memory Operating Mode Capability", list);
 	}
@@ -3293,23 +3305,23 @@ static void dmi_power_controls_power_on(const u8* p)
 
 	/* 7.26.1 */
 	if (dmi_bcd_range(p[0], 0x01, 0x12))
-		off += sprintf_s(time + off, "%02X", p[0]);
+		off += sprintf(time + off, "%02X", p[0]);
 	else
 		off += sprintf(time + off, "*");
 	if (dmi_bcd_range(p[1], 0x01, 0x31))
-		off += sprintf_s(time + off, "-%02X", p[1]);
+		off += sprintf(time + off, "-%02X", p[1]);
 	else
 		off += sprintf(time + off, "-*");
 	if (dmi_bcd_range(p[2], 0x00, 0x23))
-		off += sprintf_s(time + off, " %02X", p[2]);
+		off += sprintf(time + off, " %02X", p[2]);
 	else
 		off += sprintf(time + off, " *");
 	if (dmi_bcd_range(p[3], 0x00, 0x59))
-		off += sprintf_s(time + off, ":%02X", p[3]);
+		off += sprintf(time + off, ":%02X", p[3]);
 	else
 		off += sprintf(time + off, ":*");
 	if (dmi_bcd_range(p[4], 0x00, 0x59))
-		off += sprintf_s(time + off, ":%02X", p[4]);
+		off += sprintf(time + off, ":%02X", p[4]);
 	else
 		off += sprintf(time + off, ":*");
 
@@ -3618,11 +3630,11 @@ static void dmi_memory_channel_devices(u8 count, const u8* p)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf_s(attr, "Device %hhu Load", (u8)i);
+		sprintf(attr, "Device %hhu Load", (u8)i);
 		pr_attr(attr, "%u", p[3 * i]);
 		if (!(opt.flags & FLAG_QUIET))
 		{
-			sprintf_s(attr, "Device %hhu Handle", (u8)i);
+			sprintf(attr, "Device %hhu Handle", (u8)i);
 			pr_attr(attr, "0x%04X", WORD(p + 3 * i + 1));
 		}
 	}
@@ -3962,12 +3974,12 @@ static void dmi_parse_protocol_record(u8* rec)
 	if (assign_val == 0x1 || assign_val == 0x3)
 	{
 		/* DSP0270: 8.6: the Host IPv[4|6] Address */
-		sprintf_s(attr, "%s Address", addrstr);
+		sprintf(attr, "%s Address", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[18], buf, addrtype));
 
 		/* DSP0270: 8.6: Prints the Host IPv[4|6] Mask */
-		sprintf_s(attr, "%s Mask", addrstr);
+		sprintf(attr, "%s Mask", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[34], buf, addrtype));
 	}
@@ -3990,13 +4002,13 @@ static void dmi_parse_protocol_record(u8* rec)
 		u32 vlan;
 
 		/* DSP0270: 8.6: Prints the Redfish IPv[4|6] Service Address */
-		sprintf_s(attr, "%s Redfish Service Address", addrstr);
+		sprintf(attr, "%s Redfish Service Address", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[52], buf,
 				addrtype));
 
 		/* DSP0270: 8.6: Prints the Redfish IPv[4|6] Service Mask */
-		sprintf_s(attr, "%s Redfish Service Mask", addrstr);
+		sprintf(attr, "%s Redfish Service Mask", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[68], buf,
 				addrtype));
@@ -5621,7 +5633,7 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
  * @param len            12th (or 13) element of entrypoint buff derefrenced
  * @param num            number of **some** structures
  * @param ver            SMBIOS version in octal system, converted to unsigned int
- * @param devmem
+ * @param devmem     The filename containing the data
  * @param flags
  * ********************************************************************************
  */
@@ -5647,7 +5659,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 			if (num)
 				pr_info("%u structures occupying %u bytes.",
 					num, len);
-			if (!(opt.flags & FLAG_FROM_DUMP))
+			if (!(flags & FLAG_FROM_API) && !(opt.flags & FLAG_FROM_DUMP))
 				pr_info("Table at 0x%08llX.",
 					(unsigned long long)base);// this line is running
 		}
@@ -5678,6 +5690,61 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 	}
 	else
 		buf = mem_chunk(base, len, devmem);
+
+#ifdef BR_MAC_PLATFORM
+	// read tables returned by API call
+	if (flags & FLAG_FROM_API)
+	{
+		mach_port_t masterPort;
+		CFMutableDictionaryRef properties = NULL;
+		io_service_t service = MACH_PORT_NULL;
+		CFDataRef dataRef;
+
+		IOMainPort(MACH_PORT_NULL, &masterPort);
+		service = IOServiceGetMatchingService(masterPort,
+			IOServiceMatching("AppleSMBIOS"));
+		if (service == MACH_PORT_NULL)
+		{
+			fprintf(stderr, "AppleSMBIOS service is unreachable, sorry.\n");
+			return;
+		}
+
+		if (kIOReturnSuccess != IORegistryEntryCreateCFProperties(service,
+			&properties, kCFAllocatorDefault, kNilOptions))
+		{
+			fprintf(stderr, "No data in AppleSMBIOS IOService, sorry.\n");
+			return;
+		}
+
+		if (!CFDictionaryGetValueIfPresent(properties, CFSTR( "SMBIOS"),
+			(const void **)&dataRef))
+		{
+			fprintf(stderr, "SMBIOS property data is unreachable, sorry.\n");
+			return;
+		}
+
+		len = CFDataGetLength(dataRef);
+		if((buf = malloc(sizeof(u8) * len)) == NULL)
+		{
+			perror("malloc");
+			return;
+		}
+
+		CFDataGetBytes(dataRef, CFRangeMake(0, len), (UInt8*)buf);
+
+		if (NULL != dataRef)
+			CFRelease(dataRef);
+
+		/*
+		 * This CFRelease throws 'Segmentation fault: 11' since macOS 10.12, if
+		 * the compiled binary is not signed with an Apple developer profile.
+		 */
+		if (NULL != properties)
+			CFRelease(properties);
+
+		IOObjectRelease(service);
+	}
+ #endif // BR_MAC_PLATFORM
 
 	if (buf == NULL)
 	{
@@ -6127,6 +6194,72 @@ PRawSMBIOSData get_raw_smbios_table(void)
 }
 #endif // BR_WINDOWS_PLATFORM
 
+
+
+static int service_gauger_mac()
+{
+	mach_port_t masterPort;								// Port for service querying
+	io_service_t service = MACH_PORT_NULL;
+
+	CFDictionaryRef subjectDictionary;
+	io_iterator_t anIterator;
+
+	IOMainPort(MACH_PORT_NULL, &masterPort);			// Aligning the pointer
+
+	// Sequence for retriving the desired device data
+	const char* serviceClassString = "AppleARMSlowAdaptiveClockingManager";
+	subjectDictionary = IOServiceMatching(serviceClassString);		// Could also use the device name
+	service = IOServiceGetMatchingService(masterPort, subjectDictionary);
+
+	if (service == MACH_PORT_NULL)
+	{
+		fprintf(stderr, "%s service is unreachable, sorry.\n", serviceClassString);
+		return 1;
+	}
+
+	CFMutableDictionaryRef propertiesDict = NULL;			// The dictionary of variety of fields and corresponding useful value data
+
+	if (kIOReturnSuccess != IORegistryEntryCreateCFProperties(service,
+				&propertiesDict, kCFAllocatorDefault, kNilOptions))
+	{
+		fprintf(stderr, "No properties can be extracted from the %s IOService, sorry.\n", serviceClassString);
+		return;
+	}
+
+	const char* keyString = "CFBundleIdentifier";
+	CFStringRef fetchingKey = CFStringCreateWithCString(NULL, keyString, CFStringGetSystemEncoding());		// Key to be fetched from plethora of fields contained withing the property dictionary
+
+
+	//const void* valuePointer = CFDictionaryGetValue(propertiesDict, fetchingKey);
+
+	const void* valuePointer;
+	CFDictionaryGetValueIfPresent(propertiesDict, fetchingKey, &valuePointer);
+
+	//CFShow(valuePointer);// CFTypeRef
+	//CFShowStr(valuePointer);
+
+
+	CFStringRef someStuff = (CFStringRef) valuePointer;
+	//CFTypeRef someStuff = (Boolean*) valuePointer;
+	//const char *command = [valuePointer UTF8String];
+
+
+	CFTypeID id = CFGetTypeID(someStuff);
+
+	if(someStuff)
+	{
+		const char* fieldValueBuffer = CFStringGetCStringPtr(someStuff, CFStringGetSystemEncoding());
+		printf("The property value is %s \n", fieldValueBuffer);
+	}
+
+	if (NULL != propertiesDict)
+	{
+		CFRelease(propertiesDict);
+	}
+
+	IOObjectRelease(service);
+}
+
 int main(int argc, char* const argv[])
 {
 	int returnValue = 0;                /* Returned value of this function */
@@ -6141,11 +6274,11 @@ int main(int argc, char* const argv[])
 
 	// Nun standard C function
 	// Deserves a blog-post!
-#ifdef BR_LINUX_PLATFORM
-		/*
-		 * We don't want stdout and stderr to be mixed up if both are
-		 * redirected to the same file.
-		 */
+#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
+	/*
+	 * We don't want stdout and stderr to be mixed up if both are
+	 * redirected to the same file.
+	 */
 	setlinebuf(stdout); // output stream
 	setlinebuf(stderr); // error output stream
 #endif // BR_LINUX_PLATFORM
@@ -6214,6 +6347,16 @@ int main(int argc, char* const argv[])
 		}
 		goto done;
 	}
+
+#if defined BR_MAC_PLATFORM
+
+	mac_service_gauger_initialize();
+	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "CFBundleIdentifier", get_mac_service_field_value("AppleARMCPU", "CFBundleIdentifier", StringType));
+	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "IOMatchCategory", get_mac_service_field_value("AppleARMCPU", "IOMatchCategory", StringType));
+	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "IOCPUID", get_mac_service_field_value("AppleARMCPU", "IOCPUID", NumberType));
+	mac_service_gauger_decommision();
+
+ #endif // BR_MAC_PLATFORM
 
 	/*
 	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, tt provides a means to export kernel data structures,
