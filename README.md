@@ -1,6 +1,9 @@
 BiosReader
 ==========
 
+![Alt Text](/RepositoryResources/TarGoldie.png)
+
+
 INTRODUCTION
 ------------
 
