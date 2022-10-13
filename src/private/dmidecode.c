@@ -60,15 +60,6 @@
  *    https://www.dmtf.org/sites/default/files/DSP0270_1.0.1.pdf
  */
 
-#include "version.h"
-#include "config.h"
-#include "types.h"
-#include "util.h"
-#include "dmidecode.h"
-#include "dmiopt.h"
-#include "dmioem.h"
-#include "dmioutput.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -99,6 +90,16 @@
 //#include <Foundation/Foundation.h>
 #endif
 
+// Please keep this order because types.h shall
+// be needing the right macros for the format (BE or LE)
+#include "version.h"
+#include "config.h"
+#include "types.h"
+#include "util.h"
+#include "dmidecode.h"
+#include "dmiopt.h"
+#include "dmioem.h"
+#include "dmioutput.h"
 
 #ifdef __FreeBSD__
 #include <errno.h>
@@ -5716,15 +5717,15 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 			return;
 		}
 
-		if (!CFDictionaryGetValueIfPresent(properties, CFSTR( "SMBIOS"),
-			(const void **)&dataRef))
+		if (!CFDictionaryGetValueIfPresent(properties, CFSTR("SMBIOS"),
+			(const void**)&dataRef))
 		{
 			fprintf(stderr, "SMBIOS property data is unreachable, sorry.\n");
 			return;
 		}
 
 		len = CFDataGetLength(dataRef);
-		if((buf = malloc(sizeof(u8) * len)) == NULL)
+		if ((buf = malloc(sizeof(u8) * len)) == NULL)
 		{
 			perror("malloc");
 			return;
@@ -5744,7 +5745,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 
 		IOObjectRelease(service);
 	}
- #endif // BR_MAC_PLATFORM
+#endif // BR_MAC_PLATFORM
 
 	if (buf == NULL)
 	{
@@ -6194,72 +6195,6 @@ PRawSMBIOSData get_raw_smbios_table(void)
 }
 #endif // BR_WINDOWS_PLATFORM
 
-
-
-static int service_gauger_mac()
-{
-	mach_port_t masterPort;								// Port for service querying
-	io_service_t service = MACH_PORT_NULL;
-
-	CFDictionaryRef subjectDictionary;
-	io_iterator_t anIterator;
-
-	IOMainPort(MACH_PORT_NULL, &masterPort);			// Aligning the pointer
-
-	// Sequence for retriving the desired device data
-	const char* serviceClassString = "AppleARMSlowAdaptiveClockingManager";
-	subjectDictionary = IOServiceMatching(serviceClassString);		// Could also use the device name
-	service = IOServiceGetMatchingService(masterPort, subjectDictionary);
-
-	if (service == MACH_PORT_NULL)
-	{
-		fprintf(stderr, "%s service is unreachable, sorry.\n", serviceClassString);
-		return 1;
-	}
-
-	CFMutableDictionaryRef propertiesDict = NULL;			// The dictionary of variety of fields and corresponding useful value data
-
-	if (kIOReturnSuccess != IORegistryEntryCreateCFProperties(service,
-				&propertiesDict, kCFAllocatorDefault, kNilOptions))
-	{
-		fprintf(stderr, "No properties can be extracted from the %s IOService, sorry.\n", serviceClassString);
-		return;
-	}
-
-	const char* keyString = "CFBundleIdentifier";
-	CFStringRef fetchingKey = CFStringCreateWithCString(NULL, keyString, CFStringGetSystemEncoding());		// Key to be fetched from plethora of fields contained withing the property dictionary
-
-
-	//const void* valuePointer = CFDictionaryGetValue(propertiesDict, fetchingKey);
-
-	const void* valuePointer;
-	CFDictionaryGetValueIfPresent(propertiesDict, fetchingKey, &valuePointer);
-
-	//CFShow(valuePointer);// CFTypeRef
-	//CFShowStr(valuePointer);
-
-
-	CFStringRef someStuff = (CFStringRef) valuePointer;
-	//CFTypeRef someStuff = (Boolean*) valuePointer;
-	//const char *command = [valuePointer UTF8String];
-
-
-	CFTypeID id = CFGetTypeID(someStuff);
-
-	if(someStuff)
-	{
-		const char* fieldValueBuffer = CFStringGetCStringPtr(someStuff, CFStringGetSystemEncoding());
-		printf("The property value is %s \n", fieldValueBuffer);
-	}
-
-	if (NULL != propertiesDict)
-	{
-		CFRelease(propertiesDict);
-	}
-
-	IOObjectRelease(service);
-}
-
 int main(int argc, char* const argv[])
 {
 	int returnValue = 0;                /* Returned value of this function */
@@ -6356,7 +6291,7 @@ int main(int argc, char* const argv[])
 	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "IOCPUID", get_mac_service_field_value("AppleARMCPU", "IOCPUID", NumberType));
 	mac_service_gauger_decommision();
 
- #endif // BR_MAC_PLATFORM
+#endif // BR_MAC_PLATFORM
 
 	/*
 	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, tt provides a means to export kernel data structures,
