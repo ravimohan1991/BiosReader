@@ -1,28 +1,42 @@
-/*
- * DMI Decode
+﻿/*
+ * BiosReader ® (I couldnt find proper copyleft symbol in ASCII so using my initial in this context)
+ * is a heavy modification of the dmidecode software with the purpose of:
  *
- *   Copyright (C) 2000-2002 Alan Cox <alan@redhat.com>
- *   Copyright (C) 2002-2020 Jean Delvare <jdelvare@suse.de>
+ * 1. introducing cross-platform philosophy
+ * 2. learning BIGENDIAN and LITTLEENDIAN formatting in live action
+ * 3. rediscovering the true meaning of developing, using, and sustaining good program evolving environment
  *
- *   This program is free software; you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
+ * This program thrives under GNU GPL version 3, (the later version!)
  *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *   GNU General Public License for more details.
+ * October 13, 2022, The_Cowboy
  *
- *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+ * For legacy and sanity purposes, I shall keep the original file header template intact here.
+ * I am removing the dmidecode's header templates and it should be understood that replacement has taken the place.
  *
- *   For the avoidance of doubt the "preferred form" of this code is one which
- *   is in an open unpatent encumbered format. Where cryptographic key signing
- *   forms part of the process of creating an executable the information
- *   including keys needed to generate an equivalently functional executable
- *   are deemed to be part of the source code.
+ *      DMI Decode
+ *
+ *      Copyright (C) 2000-2002 Alan Cox <alan@redhat.com>
+ *      Copyright (C) 2002-2020 Jean Delvare <jdelvare@suse.de>
+ *
+ *     This program is free software; you can redistribute it and/or modify
+ *     it under the terms of the GNU General Public License as published by
+ *     the Free Software Foundation; either version 2 of the License, or
+ *     (at your option) any later version.
+ *
+ *     This program is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public License
+ *     along with this program; if not, write to the Free Software
+ *     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+ *
+ *     For the avoidance of doubt the "preferred form" of this code is one which
+ *     is in an open unpatent encumbered format. Where cryptographic key signing
+ *     forms part of the process of creating an executable the information
+ *     including keys needed to generate an equivalently functional executable
+ *     are deemed to be part of the source code.
  *
  * Unless specified otherwise, all references are aimed at the "System
  * Management BIOS Reference Specification, Version 3.2.0" document,
@@ -58,8 +72,11 @@
  *    https://trustedcomputinggroup.org/pc-client-platform-tpm-profile-ptp-specification/
  *  - "RedFish Host Interface Specification" (DMTF DSP0270)
  *    https://www.dmtf.org/sites/default/files/DSP0270_1.0.1.pdf
+ *  -."Apple systems, with the hope of invariant information accessing process"
+ *    https://developer.apple.com/documentation/iokit
  */
 
+ // Common Libraries
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -68,7 +85,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 
- // Some Windows specific defines (not found in Linux)
+ // Some Windows specific defines (not for Linux or Unix OS)
 #define strncasecmp(x,y,z) _strnicmp(x,y,z)
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 #endif // !BR_WINDOWS_PLATFORM
@@ -90,6 +107,7 @@
 //#include <Foundation/Foundation.h>
 #endif
 
+// Common Libraries again
 // Please keep this order because types.h shall
 // be needing the right macros for the format (BE or LE)
 #include "version.h"
@@ -101,6 +119,7 @@
 #include "dmioem.h"
 #include "dmioutput.h"
 
+// Unknown utility. Hopefully I may understand as I study
 #ifdef __FreeBSD__
 #include <errno.h>
 #include <kenv.h>
@@ -120,6 +139,22 @@ enum cpuid_type cpuid_type = cpuid_none;
 #define SYS_FIRMWARE_DIR "/sys/firmware/dmi/tables"
 #define SYS_ENTRY_FILE SYS_FIRMWARE_DIR "/smbios_entry_point"
 #define SYS_TABLE_FILE SYS_FIRMWARE_DIR "/DMI"
+
+enum OperatingSystem
+{
+	NotKnown = 0,
+	Windows = 1,
+	MacOS = 2,
+	Linux = 3
+} SubjectOS;
+
+#ifdef BR_WINDOWS_PLATFORM
+SubjectOS = Windows;
+#elif BR_LINUX_PLATFORM
+SubjectOS = Linux;
+#elif BR_MAC_PLATFORM
+SubjectOS = MacOS;
+#endif
 
 /*
  * Type-independant Stuff

@@ -1,21 +1,21 @@
 /*
- * This file is part of the dmidecode project.
+ *   ----------------------------
+ *  |  dmidecode.h
+ *   ----------------------------
+ *   This file is part of BiosReader.
  *
- *   Copyright (C) 2005-2020 Jean Delvare <jdelvare@suse.de>
- *
- *   This program is free software; you can redistribute it and/or modify
+ *   BiosReader is free software: you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
+ *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
  *
- *   This program is distributed in the hope that it will be useful,
+ *   BiosReader is distributed in the hope and belief that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
  *
  *   You should have received a copy of the GNU General Public License
- *   along with this program; if not, write to the Free Software
- *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
+ *   along with BiosReader.  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef DMIDECODE_H
@@ -23,23 +23,16 @@
 
 #include "types.h"
 
-enum OperatingSystem
-{
-	NotKnown = 0,
-	Windows = 1,
-	MacOS = 2,
-	Linux = 3
-};
+#ifdef BR_WINDOWS_PLATFORM
 
 #define WIN_UNSUPORTED        (0 << 1)
 #define WIN_NT_2K_XP          (1 << 1)
 #define WIN_2003_VISTA        (1 << 2)
 #define WIN_10                (1 << 3)
 
-#ifdef BR_WINDOWS_PLATFORM
-/*
- * Struct needed to get the SMBIOS table using GetSystemFirmwareTable API.
- */
+ /*
+  * Struct needed to get the SMBIOS table using GetSystemFirmwareTable API.
+  */
 typedef struct _RawSMBIOSData
 {
 	u8	Used20CallingMethod;
@@ -81,8 +74,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 #ifdef BR_WINDOWS_PLATFORM
 int get_windows_platform(void);
 RawSMBIOSData* get_raw_smbios_table(void);
-//int count_smbios_structures(const void* buff, u32 len);
-void* mem_chunk_win(size_t base, size_t len);
+int count_smbios_structures(const void* buff, u32 len);
 #endif
 
 #endif
