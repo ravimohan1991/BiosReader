@@ -1,6 +1,11 @@
 /*
- * This file is part of the dmidecode project.
+ * First an inspiration and clarification:
+ * After attaining success on both Linux based OS and Windows, my attempt towards macOS
+ * demanded (?), rather revealed (I would like to interpret), the concept of IOService objects
+ * (originating from IOKit), which is an abstraction for dealing with just that, instead of
+ * fetching Bios information and parsing accordingly.
  *
+ * Hence the name BiosReader part stays because of the cross-platform philosophy!
  *
  *   This program is free software; you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
