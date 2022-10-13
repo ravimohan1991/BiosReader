@@ -143,17 +143,17 @@ enum cpuid_type cpuid_type = cpuid_none;
 enum OperatingSystem
 {
 	NotKnown = 0,
-	Windows = 1,
-	MacOS = 2,
-	Linux = 3
-} SubjectOS;
+	Windows,
+	MacOS,
+	Linux
+};
 
 #ifdef BR_WINDOWS_PLATFORM
-SubjectOS = Windows;
+enum OperatingSystem SubjectOS SubjectOS = Windows;
 #elif BR_LINUX_PLATFORM
-SubjectOS = Linux;
+enum OperatingSystem SubjectOS = Linux;
 #elif BR_MAC_PLATFORM
-SubjectOS = MacOS;
+enum OperatingSystem SubjectOS SubjectOS = MacOS;
 #endif
 
 /*
@@ -285,51 +285,6 @@ static int dmi_bcd_range(u8 value, u8 low, u8 high)
 	return 1;
 }
 
-static void dmi_dump(const struct dmi_header* h)
-{
-	static char raw_data[48];
-	int row, i;
-	unsigned int off;
-	char* s;
-
-	pr_list_start("Header and Data", NULL);
-	for (row = 0; row < ((h->length - 1) >> 4) + 1; row++)
-	{
-		off = 0;
-		for (i = 0; i < 16 && i < h->length - (row << 4); i++)
-			off += sprintf(raw_data + off, i ? " %02X" : "%02X",
-				(h->data)[(row << 4) + i]);
-		pr_list_item(raw_data);
-	}
-	pr_list_end();
-
-	if ((h->data)[h->length] || (h->data)[h->length + 1])
-	{
-		pr_list_start("Strings", NULL);
-		i = 1;
-		while ((s = _dmi_string(h, i++, !(opt.flags & FLAG_DUMP))))
-		{
-			if (opt.flags & FLAG_DUMP)
-			{
-				int j, l = (int)strlen(s) + 1;
-
-				for (row = 0; row < ((l - 1) >> 4) + 1; row++)
-				{
-					off = 0;
-					for (j = 0; j < 16 && j < l - (row << 4); j++)
-						off += sprintf(raw_data + off,
-							j ? " %02X" : "%02X",
-							(unsigned char)s[(row << 4) + j]);
-					pr_list_item(raw_data);
-				}
-				/* String isn't filtered yet so do it now */
-				ascii_filter(s, l - 1);
-			}
-			pr_list_item("%s", s);
-		}
-		pr_list_end();
-	}
-}
 
 /* shift is 0 if the value is in bytes, 1 if it is in kilobytes */
 void dmi_print_memory_size(const char* attr, u64 code, int shift)
@@ -1331,9 +1286,9 @@ static void dmi_processor_id(const struct dmi_header* h)
 	 * This might help learn about new processors supporting the
 	 * CPUID instruction or another form of identification.
 	 */
-	if (!(opt.flags & FLAG_QUIET))
-		pr_attr("ID", "%02X %02X %02X %02X %02X %02X %02X %02X",
-			p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+
+	pr_attr("ID", "%02X %02X %02X %02X %02X %02X %02X %02X",
+		p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
 
 	dmi_print_cpuid(pr_attr, "Signature", sig, p);
 
@@ -3592,10 +3547,10 @@ static void dmi_fixup_type_34(struct dmi_header* h, int display)
 	if (h->length == 0x10
 		&& is_printable(p + 0x0B, 0x10 - 0x0B))
 	{
-		if (!(opt.flags & FLAG_QUIET) && display)
-			fprintf(stderr,
-				"Invalid entry length (%u). Fixed up to %u.\n",
-				0x10, 0x0B);
+		if (display)
+		{
+			fprintf(stderr, "Invalid entry length (%u). Fixed up to %u.\n", 0x10, 0x0B);
+		}
 		h->length = 0x0B;
 	}
 }
@@ -3668,11 +3623,8 @@ static void dmi_memory_channel_devices(u8 count, const u8* p)
 	{
 		sprintf(attr, "Device %hhu Load", (u8)i);
 		pr_attr(attr, "%u", p[3 * i]);
-		if (!(opt.flags & FLAG_QUIET))
-		{
-			sprintf(attr, "Device %hhu Handle", (u8)i);
-			pr_attr(attr, "0x%04X", WORD(p + 3 * i + 1));
-		}
+		sprintf(attr, "Device %hhu Handle", (u8)i);
+		pr_attr(attr, "0x%04X", WORD(p + 3 * i + 1));
 	}
 }
 
@@ -4425,15 +4377,13 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		if (h->length < 0x0E) break;
 		pr_attr("Location In Chassis", "%s",
 			dmi_string(h, data[0x0A]));
-		if (!(opt.flags & FLAG_QUIET))
-			pr_attr("Chassis Handle", "0x%04X",
-				WORD(data + 0x0B));
+		pr_attr("Chassis Handle", "0x%04X",
+			WORD(data + 0x0B));
 		pr_attr("Type", "%s",
 			dmi_base_board_type(data[0x0D]));
 		if (h->length < 0x0F) break;
 		if (h->length < 0x0F + data[0x0E] * sizeof(u16)) break;
-		if (!(opt.flags & FLAG_QUIET))
-			dmi_base_board_handles(data[0x0E], data + 0x0F);
+		dmi_base_board_handles(data[0x0E], data + 0x0F);
 		break;
 
 	case 3: /* 7.4 Chassis Information */
@@ -4500,15 +4450,12 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		pr_attr("Upgrade", "%s",
 			dmi_processor_upgrade(data[0x19]));
 		if (h->length < 0x20) break;
-		if (!(opt.flags & FLAG_QUIET))
-		{
-			dmi_processor_cache("L1 Cache Handle",
-				WORD(data + 0x1A), "L1", ver);
-			dmi_processor_cache("L2 Cache Handle",
-				WORD(data + 0x1C), "L2", ver);
-			dmi_processor_cache("L3 Cache Handle",
-				WORD(data + 0x1E), "L3", ver);
-		}
+		dmi_processor_cache("L1 Cache Handle",
+			WORD(data + 0x1A), "L1", ver);
+		dmi_processor_cache("L2 Cache Handle",
+			WORD(data + 0x1C), "L2", ver);
+		dmi_processor_cache("L3 Cache Handle",
+			WORD(data + 0x1E), "L3", ver);
 		if (h->length < 0x23) break;
 		pr_attr("Serial Number", "%s",
 			dmi_string(h, data[0x20]));
@@ -4748,8 +4695,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			dmi_print_memory_size("Maximum Capacity",
 				capacity, 1);
 		}
-		if (!(opt.flags & FLAG_QUIET))
-			dmi_memory_array_error_handle(WORD(data + 0x0B));
+		dmi_memory_array_error_handle(WORD(data + 0x0B));
 		pr_attr("Number Of Devices", "%u",
 			WORD(data + 0x0D));
 		break;
@@ -4757,12 +4703,9 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	case 17: /* 7.18 Memory Device */
 		pr_handle_name("Memory Device");
 		if (h->length < 0x15) break;
-		if (!(opt.flags & FLAG_QUIET))
-		{
-			pr_attr("Array Handle", "0x%04X",
+		pr_attr("Array Handle", "0x%04X",
 				WORD(data + 0x04));
-			dmi_memory_array_error_handle(WORD(data + 0x06));
-		}
+		dmi_memory_array_error_handle(WORD(data + 0x06));
 		dmi_memory_device_width("Total Width", WORD(data + 0x08));
 		dmi_memory_device_width("Data Width", WORD(data + 0x0A));
 		if (h->length >= 0x20 && WORD(data + 0x0C) == 0x7FFF)
@@ -4879,11 +4822,8 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 				((DWORD(data + 0x08) & 0x3) << 10) + 0x3FF);
 			dmi_mapped_address_size(DWORD(data + 0x08) - DWORD(data + 0x04) + 1);
 		}
-		if (!(opt.flags & FLAG_QUIET))
-			pr_attr("Physical Array Handle", "0x%04X",
-				WORD(data + 0x0C));
-		pr_attr("Partition Width", "%u",
-			data[0x0E]);
+		pr_attr("Physical Array Handle", "0x%04X", WORD(data + 0x0C));
+		pr_attr("Partition Width", "%u", data[0x0E]);
 		break;
 
 	case 20: /* 7.21 Memory Device Mapped Address */
@@ -4912,13 +4852,12 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 				((DWORD(data + 0x08) & 0x3) << 10) + 0x3FF);
 			dmi_mapped_address_size(DWORD(data + 0x08) - DWORD(data + 0x04) + 1);
 		}
-		if (!(opt.flags & FLAG_QUIET))
-		{
-			pr_attr("Physical Device Handle", "0x%04X",
-				WORD(data + 0x0C));
-			pr_attr("Memory Array Mapped Address Handle", "0x%04X",
-				WORD(data + 0x0E));
-		}
+
+		pr_attr("Physical Device Handle", "0x%04X",
+			WORD(data + 0x0C));
+		pr_attr("Memory Array Mapped Address Handle", "0x%04X",
+			WORD(data + 0x0E));
+
 		dmi_mapped_address_row_position(data[0x10]);
 		dmi_mapped_address_interleave_position(data[0x11]);
 		dmi_mapped_address_interleaved_data_depth(data[0x12]);
@@ -5038,9 +4977,11 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	case 27: /* 7.28 Cooling Device */
 		pr_handle_name("Cooling Device");
 		if (h->length < 0x0C) break;
-		if (!(opt.flags & FLAG_QUIET) && WORD(data + 0x04) != 0xFFFF)
+		if (WORD(data + 0x04) != 0xFFFF)
+		{
 			pr_attr("Temperature Probe Handle", "0x%04X",
 				WORD(data + 0x04));
+		}
 		pr_attr("Type", "%s",
 			dmi_cooling_device_type(data[0x06] & 0x1f));
 		pr_attr("Status", "%s",
@@ -5169,17 +5110,18 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		pr_handle_name("Management Device Component");
 		if (h->length < 0x0B) break;
 		pr_attr("Description", "%s",
-			dmi_string(h, data[0x04]));
-		if (!(opt.flags & FLAG_QUIET))
+		dmi_string(h, data[0x04]));
+
+		pr_attr("Management Device Handle", "0x%04X",
+			WORD(data + 0x05));
+		pr_attr("Component Handle", "0x%04X",
+			WORD(data + 0x07));
+		if (WORD(data + 0x09) != 0xFFFF)
 		{
-			pr_attr("Management Device Handle", "0x%04X",
-				WORD(data + 0x05));
-			pr_attr("Component Handle", "0x%04X",
-				WORD(data + 0x07));
-			if (WORD(data + 0x09) != 0xFFFF)
-				pr_attr("Threshold Handle", "0x%04X",
-					WORD(data + 0x09));
+			pr_attr("Threshold Handle", "0x%04X",
+				WORD(data + 0x09));
 		}
+
 		break;
 
 	case 36: /* 7.37 Management Device Threshold Data */
@@ -5293,24 +5235,24 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		pr_attr("Hot Replaceable", "%s",
 			WORD(data + 0x0E) & (1 << 0) ? "Yes" : "No");
 		if (h->length < 0x16) break;
-		if (!(opt.flags & FLAG_QUIET))
+
+		if (WORD(data + 0x10) != 0xFFFF)
 		{
-			if (WORD(data + 0x10) != 0xFFFF)
-				pr_attr("Input Voltage Probe Handle", "0x%04X",
-					WORD(data + 0x10));
-			if (WORD(data + 0x12) != 0xFFFF)
-				pr_attr("Cooling Device Handle", "0x%04X",
-					WORD(data + 0x12));
-			if (WORD(data + 0x14) != 0xFFFF)
-				pr_attr("Input Current Probe Handle", "0x%04X",
-					WORD(data + 0x14));
+			pr_attr("Input Voltage Probe Handle", "0x%04X", WORD(data + 0x10));
 		}
+		if (WORD(data + 0x12) != 0xFFFF)
+		{
+			pr_attr("Cooling Device Handle", "0x%04X", WORD(data + 0x12));
+		}
+		if (WORD(data + 0x14) != 0xFFFF)
+		{
+			pr_attr("Input Current Probe Handle", "0x%04X", WORD(data + 0x14));
+		}
+
 		break;
 
 	case 40: /* 7.41 Additional Information */
 		if (h->length < 0x0B) break;
-		if (opt.flags & FLAG_QUIET)
-			return;
 		dmi_additional_info(h);
 		break;
 
@@ -5405,8 +5347,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		pr_list_end();
 		pr_attr("State", "%s", dmi_firmware_state(data[0x16]));
 		if (h->length < 0x18 + data[0x17] * 2) break;
-		if (!(opt.flags & FLAG_QUIET))
-			dmi_firmware_components(data[0x17], data + 0x18);
+		dmi_firmware_components(data[0x17], data + 0x18);
 		break;
 
 	case 126:
@@ -5420,11 +5361,8 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	default:
 		if (dmi_decode_oem(h))
 			break;
-		if (opt.flags & FLAG_QUIET)
-			return;
 		pr_handle_name("%s Type",
 			h->type >= 128 ? "OEM-specific" : "Unknown");
-		dmi_dump(h);
 	}
 	pr_sep();
 }
@@ -5490,13 +5428,6 @@ static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver
 	}
 }
 
-static void dmi_table_dump(const u8* buf, u32 len)
-{
-	if (!(opt.flags & FLAG_QUIET))
-		pr_comment("Writing %d bytes to %s.", len, opt.dumpfile);
-	write_dump(32, len, buf, opt.dumpfile, 0);
-}
-
 /*****************************************************************************************
  * Decoding the raw information spit by Bios of the electronics
  * @param buf      the raw information obtained from /sys/firmware/dmi/tables/DMI (Ubuntu)
@@ -5529,8 +5460,7 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 		 * Also stop at end-of-table marker if so instructed.
 		 */
 		if (h.length < 4 ||
-			(h.type == 127 &&
-				(opt.flags & (FLAG_QUIET | FLAG_STOP_AT_EOT))))
+			(h.type == 127))
 			break;
 		i++;
 
@@ -5569,7 +5499,7 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 		to_dmi_header(&h, data);
 		display = ((opt.type == NULL || opt.type[h.type])
 			&& (opt.handle == ~0U || opt.handle == h.handle)
-			&& !((opt.flags & FLAG_QUIET) && (h.type == 126 || h.type == 127))
+			&& !((h.type == 126 || h.type == 127))
 			&& !opt.string);
 
 		/*
@@ -5580,26 +5510,16 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 		 */
 		if (h.length < 4)
 		{
-			if (!(opt.flags & FLAG_QUIET))
-			{
-				fprintf(stderr,
-					"Invalid entry length (%u). DMI table "
-					"is broken! Stop.\n\n",
-					(unsigned int)h.length);
-				opt.flags |= FLAG_QUIET;
-			}
+			fprintf(stderr, "Invalid entry length (%u). DMI table is broken! Stop.\n\n", (unsigned int)h.length);
 			break;
 		}
 		i++;
 
-		/* In quiet mode, stop decoding at end of table marker */
-		if ((opt.flags & FLAG_QUIET) && h.type == 127)
-			break;
-
 		// This line runs
-		if (display
-			&& (!(opt.flags & FLAG_QUIET) || (opt.flags & FLAG_DUMP)))
+		if (display)
+		{
 			pr_handle(&h);
+		}
 
 		/* Look for the next handle */
 		next = data + h.length;
@@ -5611,8 +5531,10 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 		/* Make sure the whole structure fits in the table */
 		if ((unsigned long)(next - buf) > len)
 		{
-			if (display && !(opt.flags & FLAG_QUIET))
+			if (display)
+			{
 				pr_struct_err("<TRUNCATED>");
+			}
 			pr_sep();
 			data = next;
 			break;
@@ -5624,20 +5546,14 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 
 		if (display)
 		{
-			if (opt.flags & FLAG_DUMP)
-			{
-				dmi_dump(&h);
-				pr_sep();
-			}
-			else
-			{
-				// Handles for various electronics items (in the PC)
-				dmi_decode(&h, ver);
-			}
+			// Handles for various electronics items (in the PC)
+			dmi_decode(&h, ver);
 		}
 		else if (opt.string != NULL
 			&& opt.string->type == h.type)
+		{
 			dmi_table_string(&h, data, ver);
+		}
 
 		data = next;
 
@@ -5650,17 +5566,16 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 	 * SMBIOS v3 64-bit entry points do not announce a structures count,
 	 * and only indicate a maximum size for the table.
 	 */
-	if (!(opt.flags & FLAG_QUIET))
+
+	if (num && i != num)
 	{
-		if (num && i != num)
-			fprintf(stderr, "Wrong DMI structures count: %d announced, "
-				"only %d decoded.\n", num, i);
-		if ((unsigned long)(data - buf) > len
-			|| (num && (unsigned long)(data - buf) < len))
-			fprintf(stderr, "Wrong DMI structures length: %u bytes "
-				"announced, structures occupy %lu bytes.\n",
-				len, (unsigned long)(data - buf));
+		fprintf(stderr, "Wrong DMI structures count: %d announced, only %d decoded.\n", num, i);
 	}
+	if ((unsigned long)(data - buf) > len || (num && (unsigned long)(data - buf) < len))
+	{
+		fprintf(stderr, "Wrong DMI structures length: %u bytes announced, structures occupy %lu bytes.\n", len, (unsigned long)(data - buf));
+	}
+
 }
 
 /**********************************************************************************
@@ -5679,7 +5594,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 {
 	u8* buf;
 
-	if (ver > SUPPORTED_SMBIOS_VER && !(opt.flags & FLAG_QUIET))
+	if (ver > SUPPORTED_SMBIOS_VER)
 	{
 		pr_comment("SMBIOS implementations newer than version %u.%u.%u are not",
 			SUPPORTED_SMBIOS_VER >> 16,
@@ -5688,21 +5603,22 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		pr_comment("fully supported by this version of dmidecode.");
 	}
 
-	if (!(opt.flags & FLAG_QUIET))
+	if (opt.type == NULL)
 	{
-		if (opt.type == NULL)
+		if (num)
 		{
-			if (num)
-				pr_info("%u structures occupying %u bytes.",
-					num, len);
-			if (!(flags & FLAG_FROM_API) && !(opt.flags & FLAG_FROM_DUMP))
-				pr_info("Table at 0x%08llX.",
-					(unsigned long long)base);// this line is running
+			pr_info("%u structures occupying %u bytes.",
+				num, len);
 		}
-		pr_sep();
+		if (!(flags & FLAG_FROM_API))
+		{
+			pr_info("Table at 0x%08llX.",
+				(unsigned long long)base);// this line is running
+		}
 	}
+	pr_sep();
 
-	if ((flags & FLAG_NO_FILE_OFFSET) || (opt.flags & FLAG_FROM_DUMP))
+	if (flags & FLAG_NO_FILE_OFFSET)
 	{
 		/*
 		 * When reading from sysfs or from a dump file, the file may be
@@ -5716,7 +5632,8 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		// read the file /sys/firmware/dmi/tables/DMI (Ubuntu)
 		buf = read_file(flags & FLAG_NO_FILE_OFFSET ? 0 : base,
 			&size, devmem);
-		if (!(opt.flags & FLAG_QUIET) && num && size != (size_t)len)
+
+		if (num && size != (size_t)len)
 		{
 			fprintf(stderr, "Wrong DMI structures length: %u bytes "
 				"announced, only %lu bytes available.\n",
@@ -5793,10 +5710,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		return;
 	}
 
-	if (opt.flags & FLAG_DUMP_BIN)
-		dmi_table_dump(buf, len);
-	else
-		dmi_table_decode(buf, len, num, ver >> 8, flags);
+	dmi_table_decode(buf, len, num, ver >> 8, flags);
 
 	free(buf);
 }
@@ -5859,9 +5773,7 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 		return 0;
 
 	ver = (buf[0x07] << 16) + (buf[0x08] << 8) + buf[0x09];
-	if (!(opt.flags & FLAG_QUIET))
-		pr_info("SMBIOS %u.%u.%u present.",
-			buf[0x07], buf[0x08], buf[0x09]);
+	pr_info("SMBIOS %u.%u.%u present.", buf[0x07], buf[0x08], buf[0x09]);
 
 	// QWORD (*(const u64 *)(x))
 	// dunno why const is here
@@ -5876,19 +5788,6 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 
 	dmi_table(((off_t)offset.h << 32) | offset.l,
 		DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
-
-	if (opt.flags & FLAG_DUMP_BIN)
-	{
-		u8 crafted[32];
-
-		memcpy(crafted, buf, 32);
-		overwrite_smbios3_address(crafted);
-
-		if (!(opt.flags & FLAG_QUIET))
-			pr_comment("Writing %d bytes to %s.", crafted[0x06],
-				opt.dumpfile);
-		write_dump(0, crafted[0x06], crafted, opt.dumpfile, 1);
-	}
 
 	return 1;
 }
@@ -5917,39 +5816,18 @@ static int smbios_decode(u8* buf, const char* devmem, u32 flags)
 	{
 	case 0x021F:
 	case 0x0221:
-		if (!(opt.flags & FLAG_QUIET))
-			fprintf(stderr,
-				"SMBIOS version fixup (2.%d -> 2.%d).\n",
-				ver & 0xFF, 3);
+		fprintf(stderr, "SMBIOS version fixup (2.%d -> 2.%d).\n", ver & 0xFF, 3);
 		ver = 0x0203;
 		break;
 	case 0x0233:
-		if (!(opt.flags & FLAG_QUIET))
-			fprintf(stderr,
-				"SMBIOS version fixup (2.%d -> 2.%d).\n",
-				51, 6);
+		fprintf(stderr, "SMBIOS version fixup (2.%d -> 2.%d).\n", 51, 6);
 		ver = 0x0206;
 		break;
 	}
-	if (!(opt.flags & FLAG_QUIET))
-		pr_info("SMBIOS %u.%u present.",
-			ver >> 8, ver & 0xFF);
 
-	dmi_table(DWORD(buf + 0x18), WORD(buf + 0x16), WORD(buf + 0x1C),
-		ver << 8, devmem, flags);
+	pr_info("SMBIOS %u.%u present.", ver >> 8, ver & 0xFF);
 
-	if (opt.flags & FLAG_DUMP_BIN)
-	{
-		u8 crafted[32];
-
-		memcpy(crafted, buf, 32);
-		overwrite_dmi_address(crafted + 0x10);
-
-		if (!(opt.flags & FLAG_QUIET))
-			pr_comment("Writing %d bytes to %s.", crafted[0x05],
-				opt.dumpfile);
-		write_dump(0, crafted[0x05], crafted, opt.dumpfile, 1);
-	}
+	dmi_table(DWORD(buf + 0x18), WORD(buf + 0x16), WORD(buf + 0x1C), ver << 8, devmem, flags);
 
 	return 1;
 }
@@ -5959,26 +5837,11 @@ static int legacy_decode(u8* buf, const char* devmem, u32 flags)
 	if (!checksum(buf, 0x0F))
 		return 0;
 
-	if (!(opt.flags & FLAG_QUIET))
-		pr_info("Legacy DMI %u.%u present.",
-			buf[0x0E] >> 4, buf[0x0E] & 0x0F);
+	pr_info("Legacy DMI %u.%u present.", buf[0x0E] >> 4, buf[0x0E] & 0x0F);
 
 	dmi_table(DWORD(buf + 0x08), WORD(buf + 0x06), WORD(buf + 0x0C),
 		((buf[0x0E] & 0xF0) << 12) + ((buf[0x0E] & 0x0F) << 8),
 		devmem, flags);
-
-	if (opt.flags & FLAG_DUMP_BIN)
-	{
-		u8 crafted[16];
-
-		memcpy(crafted, buf, 16);
-		overwrite_dmi_address(crafted);
-
-		if (!(opt.flags & FLAG_QUIET))
-			pr_comment("Writing %d bytes to %s.", 0x0F,
-				opt.dumpfile);
-		write_dump(0, 0x0F, crafted, opt.dumpfile, 1);
-	}
 
 	return 1;
 }
@@ -6053,9 +5916,8 @@ static int address_from_efi(off_t* address)
 	ret = EFI_NOT_FOUND;
 #endif
 
-	if (ret == 0 && !(opt.flags & FLAG_QUIET))
-		pr_comment("%s entry point at 0x%08llx",
-			eptype, (unsigned long long) * address);
+	if (ret == 0)
+		pr_comment("%s entry point at 0x%08llx", eptype, (unsigned long long) * address);
 
 	return ret;
 }
@@ -6249,74 +6111,14 @@ int main(int argc, char* const argv[])
 	 * We don't want stdout and stderr to be mixed up if both are
 	 * redirected to the same file.
 	 */
-	setlinebuf(stdout); // output stream
-	setlinebuf(stderr); // error output stream
+	setlinebuf(stdout); // standard output stream
+	setlinebuf(stderr); // standard error output stream
 #endif // BR_LINUX_PLATFORM
-
-	// Sanity check?
-	if (sizeof(u8) != 1 || sizeof(u16) != 2 || sizeof(u32) != 4 || '\0' != 0)
-	{
-		fprintf(stderr, "%s: compiler incompatibility\n", argv[0]);
-		exit(255);
-	}
 
 	/* Set default option values */
 	opt.devmem = DEFAULT_MEM_DEV; // An entry point into Bios it seems
 	opt.flags = 0; // Commandline parameters are compared against which
 	opt.handle = ~0U;
-
-	/*
-	if (parse_command_line(argc, argv) < 0)
-	{
-		returnValue = 2;
-		goto exit_free;
-	}
-	*/
-
-	if (opt.flags & FLAG_HELP)
-	{
-		print_help();
-		goto exit_free;
-	}
-
-	if (opt.flags & FLAG_VERSION)
-	{
-		printf("%s\n", VERSION);
-		goto exit_free;
-	}
-
-	if (!(opt.flags & FLAG_QUIET))
-		pr_comment("BiosReader %s", VERSION);
-
-	/* Read from dump if so instructed */
-	if (opt.flags & FLAG_FROM_DUMP)
-	{
-		if (!(opt.flags & FLAG_QUIET))
-			pr_info("Reading SMBIOS/DMI data from file %s.",
-				opt.dumpfile);
-		if ((buf = mem_chunk(0, 0x20, opt.dumpfile)) == NULL)
-		{
-			returnValue = 1;
-			goto exit_free;
-		}
-
-		if (memcmp(buf, "_SM3_", 5) == 0)
-		{
-			if (smbios3_decode(buf, opt.dumpfile, 0))
-				found++;
-		}
-		else if (memcmp(buf, "_SM_", 4) == 0)
-		{
-			if (smbios_decode(buf, opt.dumpfile, 0))
-				found++;
-		}
-		else if (memcmp(buf, "_DMI_", 5) == 0)
-		{
-			if (legacy_decode(buf, opt.dumpfile, 0))
-				found++;
-		}
-		goto done;
-	}
 
 #if defined BR_MAC_PLATFORM
 
@@ -6335,11 +6137,8 @@ int main(int argc, char* const argv[])
 	 * the largest one, then determine what type it contains.
 	 */
 	size = 0x20;
-	if (!(opt.flags & FLAG_NO_SYSFS)
-		&& (buf = read_file(0, &size, SYS_ENTRY_FILE)) != NULL)// Caution, entry file may change based on OS
+	if ((buf = read_file(0, &size, SYS_ENTRY_FILE)) != NULL)// Caution, entry file may change based on OS
 	{
-		if (!(opt.flags & FLAG_QUIET))
-			pr_info("Getting SMBIOS data from sysfs.");
 		if (size >= 24 && memcmp(buf, "_SM3_", 5) == 0)
 		{
 			if (smbios3_decode(buf, SYS_TABLE_FILE, FLAG_NO_FILE_OFFSET))
@@ -6357,12 +6156,19 @@ int main(int argc, char* const argv[])
 		}
 
 		if (found)
+		{
 			goto done;
-		if (!(opt.flags & FLAG_QUIET))
-			pr_info("Failed to get SMBIOS data from sysfs.");
+		}
+		else
+		{
+			printf("Sorry couldn't get the job done.");
+		}
 	}
 
 	/* Next try EFI (ia64, Intel-based Mac, arm64) */
+	// The EFI (Extensible Firmware Interface) system partition or ESP is a partition on a data storage device
+	// (usually a hard disk drive or solid-state drive) that is used by computers having the Unified Extensible Firmware Interface (UEFI).
+	// When a computer is booted, UEFI firmware loads files stored on the ESP to start installed operating systems and various utilities.
 	efi = address_from_efi(&fp);
 	switch (efi)
 	{
@@ -6373,9 +6179,9 @@ int main(int argc, char* const argv[])
 		goto exit_free;
 	}
 
-	if (!(opt.flags & FLAG_QUIET))
-		pr_info("Found SMBIOS entry point in EFI, reading table from %s.",
-			opt.devmem);
+
+	pr_info("Found SMBIOS entry point in EFI, reading table from %s.", opt.devmem);
+
 	if ((buf = mem_chunk(fp, 0x20, opt.devmem)) == NULL)
 	{
 		returnValue = 1;
@@ -6396,8 +6202,8 @@ int main(int argc, char* const argv[])
 
 memory_scan:
 #if defined __i386__ || defined __x86_64__
-	if (!(opt.flags & FLAG_QUIET))
-		pr_info("Scanning %s for entry point.", opt.devmem);
+	pr_info("Scanning %s for entry point.", opt.devmem);
+
 	/* Fallback to memory scan (x86, x86_64) */
 	if ((buf = mem_chunk(0xF0000, 0x10000, opt.devmem)) == NULL)
 	{
@@ -6455,8 +6261,10 @@ memory_scan:
 #endif // BR_WINDOS_PLATFORM
 
 done:
-	if (!found && !(opt.flags & FLAG_QUIET))
+	if (!found)
+	{
 		pr_comment("No SMBIOS nor DMI entry point found, sorry.");
+	}
 
 	free(buf);
 exit_free:

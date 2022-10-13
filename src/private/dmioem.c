@@ -214,9 +214,6 @@ static void dmi_hp_240_attr(u64 defined, u64 set)
 
 static void dmi_hp_203_assoc_hndl(const char *fname, u16 num)
 {
-	if (opt.flags & FLAG_QUIET)
-		return;
-
 	if (num == 0xFFFE)
 		pr_attr(fname, "N/A");
 	else
@@ -605,14 +602,16 @@ static int dmi_decode_hp(const struct dmi_header *h)
 			pr_attr("Device Name", "%s", dmi_string(h, data[0x1E]));
 			if (h->length < 0x22) break;
 			pr_attr("UEFI Location", "%s", dmi_string(h, data[0x1F]));
-			if (!(opt.flags & FLAG_QUIET))
+
+			if (WORD(data + 0x14) & 1)
 			{
-				if (WORD(data + 0x14) & 1)
-					pr_attr("Associated Real/Phys Handle", "0x%04X",
-						WORD(data + 0x20));
-				else
-					pr_attr("Associated Real/Phys Handle", "N/A");
+				pr_attr("Associated Real/Phys Handle", "0x%04X", WORD(data + 0x20));
 			}
+			else
+			{
+				pr_attr("Associated Real/Phys Handle", "N/A");
+			}
+
 			if (h->length < 0x24) break;
 			pr_attr("PCI Part Number", "%s", dmi_string(h, data[0x22]));
 			pr_attr("Serial Number", "%s", dmi_string(h, data[0x23]));
@@ -743,8 +742,7 @@ static int dmi_decode_hp(const struct dmi_header *h)
 			dmi_hp_224_ex_status(data[0x04], data[0x05]);
 			dmi_hp_224_module_type(data[0x06]);
 			dmi_hp_224_module_attr(data[0x07]);
-			if (!(opt.flags & FLAG_QUIET))
-				pr_attr("Associated Handle", "0x%04X", WORD(data + 0x8));
+			pr_attr("Associated Handle", "0x%04X", WORD(data + 0x8));
 			if (h->length < 0x0c) break;
 			dmi_hp_224_chipid(WORD(data + 0x0a));
 			break;
@@ -770,8 +768,7 @@ static int dmi_decode_hp(const struct dmi_header *h)
 			 */
 			pr_handle_name("%s Power Supply Information", company);
 			if (h->length < 0x0B) break;
-			if (!(opt.flags & FLAG_QUIET))
-				pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
+			pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
 			pr_attr("Manufacturer", "%s", dmi_string(h, data[0x06]));
 			pr_attr("Revision", "%s", dmi_string(h, data[0x07]));
 			dmi_hp_230_method_bus_seg_addr(data[0x08], data[0x09], data[0x0A]);
@@ -859,8 +856,7 @@ static int dmi_decode_hp(const struct dmi_header *h)
 			if (gen < G9) return 0;
 			pr_handle_name("%s DIMM Vendor Information", company);
 			if (h->length < 0x08) break;
-			if (!(opt.flags & FLAG_QUIET))
-				pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
+			pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
 			pr_attr("DIMM Manufacturer", "%s", dmi_string(h, data[0x06]));
 			pr_attr("DIMM Manufacturer Part Number", "%s", dmi_string(h, data[0x07]));
 			if (h->length < 0x09) break;
@@ -891,8 +887,7 @@ static int dmi_decode_hp(const struct dmi_header *h)
 			if (gen < G9) return 0;
 			pr_handle_name("%s Proliant USB Port Connector Correlation Record", company);
 			if (h->length < 0x0F) break;
-			if (!(opt.flags & FLAG_QUIET))
-				pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
+			pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
 			pr_attr("PCI Device", "%02x:%02x.%x", data[0x6],
 				data[0x7] >> 3, data[0x7] & 0x7);
 			dmi_hp_238_loc("Location", data[0x8]);
@@ -930,8 +925,7 @@ static int dmi_decode_hp(const struct dmi_header *h)
 			 */
 			pr_handle_name("%s Proliant Inventory Record", company);
 			if (h->length < 0x27) break;
-			if (!(opt.flags & FLAG_QUIET))
-				pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
+			pr_attr("Associated Handle", "0x%04X", WORD(data + 0x4));
 			pr_attr("Package Version", "0x%08X", DWORD(data + 0x6));
 			pr_attr("Version String", "%s", dmi_string(h, data[0x0A]));
 
