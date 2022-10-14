@@ -18,6 +18,8 @@
  *   along with BiosReader.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#pragma once
+
 #include "dmidecode.h"
 
 

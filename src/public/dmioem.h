@@ -18,6 +18,8 @@
  *   along with BiosReader.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#pragma once
+
 struct dmi_header;
 
 void dmi_set_vendor(const char* s, const char* p);
