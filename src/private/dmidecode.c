@@ -76,7 +76,7 @@
  *    https://developer.apple.com/documentation/iokit
  */
 
- // Common Libraries
+// Common Libraries
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -85,7 +85,7 @@
 #include <ws2tcpip.h>
 #include <windows.h>
 
- // Some Windows specific defines (not for Linux or Unix OS)
+// Some Windows specific defines (not for Linux or Unix OS)
 #define strncasecmp(x,y,z) _strnicmp(x,y,z)
 #define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
 #endif // !BR_WINDOWS_PLATFORM
