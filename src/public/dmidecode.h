@@ -5,7 +5,7 @@
  *   This file is part of BiosReader.
  *
  *   BiosReader is free software: you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
+ *   it under the terms of the GNU Affero General Public License as published by
  *   the Free Software Foundation, either version 3 of the License, or
  *   (at your option) any later version.
  *
@@ -14,7 +14,7 @@
  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
  *
- *   You should have received a copy of the GNU General Public License
+ *   You should have received a copy of the GNU Affero General Public License
  *   along with BiosReader.  If not, see <https://www.gnu.org/licenses/>.
  */
 
@@ -22,6 +22,99 @@
 #define DMIDECODE_H
 
 #include "types.h"
+
+
+struct motherboard_components
+{
+	char* baseboard;
+	char* managementdevice; // electronics monitor (temp, fan speed and whatnot) voltage probe, see mb_management_elements
+	char* portconnector; // multiple slots usb, lan, and whatnot
+	char* pcieslots; // multiple slots for GPU etc mounting
+	char* integratedgraphicsdevice;
+	char* ethernet;
+	char* randomaccessmemory; // multiple slots
+	char* cpucache; // multiple slots
+};
+
+struct random_access_memory
+{
+	char* formfactor;
+	char* ramtype;
+	char* bank; // what is this and is this really necesary?
+	char* manufacturer;
+
+	char* serialnumber;
+	char* partnumber;
+	char* assettag;
+
+	char* configuredmemoryspeed;
+	char* operatingvoltage;
+};
+
+struct cpu_cache
+{
+	char* designation;
+	char* status;
+	char* operationmode;
+	char* sramtype;
+	char* speed;
+	char* errorcorrection;
+	char* associativity;
+	char* installedsize;
+};
+
+struct mb_management_elements
+{
+	char* temperatureprobe;
+	char* voltageprobe;
+	char* data;
+};
+
+struct mb_language_modules
+{
+	char* currentactivemodule;
+	char* supportedlanguagemodules;
+};
+
+struct central_processing_unit
+{
+	char* designation;
+	char* processingfamily;
+	char* manufacturer;
+	char* cpuid; // in the context of motherboard components
+	char* signature;
+	char* cpuflags;
+	char* completeprocessingunitidentifier;
+	char* operatingvoltage;
+	char* externalclock;
+	char* maximumspeed;
+	char* currentspeed;
+
+	char* serialnumber;
+	char* partnumber;
+	char* assettag;
+
+	char* corecount;
+	char* threadcount;
+	char* restofthecharacterstics;
+};
+
+enum bios_reader_information_classification
+{
+	// Pure Information
+	pi_manufacturer = 0,
+	pi_onboardinformation, // system boot
+	pi_localization,
+
+	// Software side
+	ss_bios,
+
+	// Physicaldevice side
+	ps_motherboard,
+	ps_chassis,  // almost synonymous to cabinet (or Chastity if I may)
+	ps_heaver, // cooling system for CPU area
+	ps_processor
+};
 
 #ifdef BR_WINDOWS_PLATFORM
 

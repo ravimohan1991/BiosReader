@@ -4287,6 +4287,14 @@ static void dmi_firmware_components(u8 count, const u8* p)
 	pr_list_end();
 }
 
+
+
+static const char* get_raw_electronics_information()
+{
+	return "BLANK";
+}
+
+
 /*
  * Main
  * The juicy stuff!!
@@ -6093,6 +6101,10 @@ PRawSMBIOSData get_raw_smbios_table(void)
 	return buf;
 }
 #endif // BR_WINDOWS_PLATFORM
+
+
+
+
 
 int main(int argc, char* const argv[])
 {
