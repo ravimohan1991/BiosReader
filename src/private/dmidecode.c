@@ -80,6 +80,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 #ifdef BR_WINDOWS_PLATFORM
 #include <ws2tcpip.h>
@@ -91,8 +92,9 @@
 #endif // !BR_WINDOWS_PLATFORM
 
 #if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
-#include <strings.h>
+#define _GNU_SOURCE
 #include <unistd.h>
+#include <strings.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #endif
@@ -5639,9 +5641,10 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		 * parse error.
 		 */
 		size_t size = len;
+		int errorSpit = 0;
 		// read the file /sys/firmware/dmi/tables/DMI (Ubuntu)
 		buf = read_file(flags & FLAG_NO_FILE_OFFSET ? 0 : base,
-			&size, devmem);
+			&size, devmem, &errorSpit);
 
 		if (num && size != (size_t)len)
 		{
@@ -6102,10 +6105,6 @@ PRawSMBIOSData get_raw_smbios_table(void)
 }
 #endif // BR_WINDOWS_PLATFORM
 
-
-
-
-
 int main(int argc, char* const argv[])
 {
 	int returnValue = 0;                /* Returned value of this function */
@@ -6151,7 +6150,8 @@ int main(int argc, char* const argv[])
 	 * the largest one, then determine what type it contains.
 	 */
 	size = 0x20;
-	if ((buf = read_file(0, &size, SYS_ENTRY_FILE)) != NULL)// Caution, entry file may change based on OS
+	int errorSpit = 0;
+	if ((buf = read_file(0, &size, SYS_ENTRY_FILE, &errorSpit)) != NULL)// Caution, entry file may change based on OS
 	{
 		if (size >= 24 && memcmp(buf, "_SM3_", 5) == 0)
 		{
@@ -6177,6 +6177,28 @@ int main(int argc, char* const argv[])
 		{
 			printf("Sorry couldn't get the job done.");
 		}
+	}
+	else if(errorSpit == 13) // see erno-base.h for linux and unix maybe
+	{
+		struct stat fileStatistics;
+		int result;
+
+		result = stat(SYS_ENTRY_FILE, &fileStatistics);
+
+		if(result == -1)
+		{
+			printf("There is something terribly wrong with the file %s, Goodbye!", SYS_ENTRY_FILE);
+			return 1;
+		}
+
+		printf("The permissions of the file %s are like so %X\n", SYS_ENTRY_FILE, fileStatistics.st_mode);
+
+		printf("Couldn't read the file, appropriate access required.\n");
+	}
+	else
+	{
+		printf("There is something terribly wrong with the file %s, Goodbye!", SYS_ENTRY_FILE);
+		return 1;
 	}
 
 	/* Next try EFI (ia64, Intel-based Mac, arm64) */

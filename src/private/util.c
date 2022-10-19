@@ -37,8 +37,30 @@
 #endif // BR_WINDOWS_PLATFORM
 
 #if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
+#ifndef TARGET_UID
+#define TARGET_UID 0
+#endif
+
+#ifndef TARGET_GID
+#define TARGET_GID 0
+#endif
+
+#ifndef UID_MIN
+#define UID_MIN 500
+#endif
+
+#ifndef GID_MIN
+#define GID_MIN 500
+#endif
 #include <sys/mman.h>
 #include <unistd.h>
+#include <stdlib.h>
+#include <sys/prctl.h>
+#include <linux/capability.h>
+
+// Decommisioned part
+// #include <cap-ng.h>
+
 #endif // BR_LINUX_PLATFORM
 
 #include <string.h>
@@ -110,11 +132,73 @@ int checksum(const u8* buf, size_t len)
  * Returns a pointer to the allocated buffer, or NULL on error, and
  * sets max_len to the length actually read.
  */
-void* read_file(off_t base, size_t* max_len, const char* filename)
+
+int getresuid (__uid_t *__ruid, __uid_t *__euid, __uid_t *__suid);
+int getresgid (__gid_t *__rgid, __gid_t *__egid, __gid_t *__sgid);
+int setresuid (__uid_t __ruid, __uid_t __euid, __uid_t __suid);
+int setresgid (__gid_t __rgid, __gid_t __egid, __gid_t __sgid);
+
+void*  read_file(off_t base, size_t* max_len, const char* filename, int* file_access)
 {
 	struct stat statbuf;
 	int fd;
 	u8* p;
+
+	//set_ambient_cap(CAP_SETUID);//CAP_DAC_OVERRIDE);//CAP_SETUID);//CAP_FOWNER);//CAP_SYS_ADMIN); cap_sys_admin
+
+	uid_t ruid, euid, suid; /* Real, Effective, Saved user ID */
+	gid_t rgid, egid, sgid; /* Real, Effective, Saved group ID */
+	int uerr, gerr;
+
+	//int lalaland = setuid(0);
+
+	if (getresuid(&ruid, &euid, &suid) == -1)
+	{
+		fprintf(stderr, "Cannot obtain user identity: %m.\n");
+		*file_access = 35;
+		return NULL;
+	}
+	if (getresgid(&rgid, &egid, &sgid) == -1)
+	{
+		fprintf(stderr, "Cannot obtain group identity: %m.\n");
+		*file_access = 36;
+		return NULL;
+	}
+	if (ruid != (uid_t)TARGET_UID && ruid < (uid_t)UID_MIN)
+	{
+		fprintf(stderr, "Invalid user.\n");
+		*file_access = 37;
+		return NULL;
+	}
+	if (rgid != (gid_t)TARGET_UID && rgid < (gid_t)GID_MIN)
+	{
+		fprintf(stderr, "Invalid group.\n");
+		*file_access = 38;
+		return NULL;
+	}
+
+	/* Switch to target user. setuid bit handles this, but doing it again does no harm. */
+	if (seteuid((uid_t)TARGET_UID) == -1)
+	{
+		fprintf(stderr, "Insufficient user privileges.\n");
+		*file_access = 39;
+		return NULL;
+	}
+
+	/* Switch to target group. setgid bit handles this, but doing it again does no harm.
+	 * If TARGET_UID == 0, we need no setgid bit, as root has the privilege. */
+	if (setegid((gid_t)TARGET_GID) == -1)
+	{
+		fprintf(stderr, "Insufficient group privileges.\n");
+		*file_access = 40;
+		return NULL;
+	}
+
+	/* ... privileged operations ... */
+
+	/*
+	 * Open the restricted file.
+	 */
 
 	/*
 	 * Don't print error message on missing file, as we will try to read
@@ -123,7 +207,10 @@ void* read_file(off_t base, size_t* max_len, const char* filename)
 	if ((fd = open(filename, O_RDONLY)) == -1)
 	{
 		if (errno != ENOENT)
+		{
+			*file_access = errno;
 			perror(filename);
+		}
 		return NULL;
 	}
 
@@ -158,6 +245,39 @@ void* read_file(off_t base, size_t* max_len, const char* filename)
 
 	if (myread(fd, p, *max_len, filename) == 0)
 		goto out;
+
+	/* Drop privileges. */
+	gerr = 0;
+	if (setresgid(rgid, rgid, rgid) == -1)
+	{
+		gerr = errno;
+		if (!gerr)
+		gerr = EINVAL;
+	}
+	uerr = 0;
+	if (setresuid(ruid, ruid, ruid) == -1)
+	{
+		uerr = errno;
+		if (!uerr)
+		{
+			uerr = EINVAL;
+		}
+	}
+	if (uerr || gerr)
+	{
+		if (uerr)
+		{
+			fprintf(stderr, "Cannot drop user privileges: %s.\n", strerror(uerr));
+		}
+		if (gerr)
+		{
+			fprintf(stderr, "Cannot drop group privileges: %s.\n", strerror(gerr));
+		}
+
+		return NULL;
+	}
+
+	/* ... unprivileged operations ... */
 
 err_free:
 	free(p);

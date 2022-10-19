@@ -10,9 +10,9 @@ cmake_minimum_required(VERSION 3.4)
 # generating enough context for entire Software BiosReader.
 
 # First we specify the C++/C standard
-set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_C_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # Control where the static and shared libraries are built
 # We would want a semi-packaging fashioned way where all bianries are together
@@ -30,7 +30,7 @@ set(APPLICATION_NAME "BiosReader")
 
 # Finally we specify policies, if any
 # This one is for inter-directory linking
-cmake_policy(SET CMP0079 NEW)
+# cmake_policy(SET CMP0079 NEW)
 
 # Setting some options
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
@@ -59,7 +59,64 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 endif()
 
 # Then we specify the involved libraries
-add_subdirectory(src)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/softvendor/libcapng)
+#add_subdirectory(src)
+
+
+if(WIN32)
+    add_compile_definitions(BR_WINDOWS_PLATFORM)
+	if(MSVC)
+	    # For faster multithreaded compilation
+        #add_definitions(/MP)
+	endif()
+elseif(UNIX AND NOT APPLE)
+    add_compile_definitions(BR_LINUX_PLATFORM)
+    add_compile_definitions(__USE_GNU)
+elseif(APPLE)
+    add_compile_definitions(BR_MAC_PLATFORM)
+    add_compile_definitions(__USE_GNU)
+    find_library(IOKit IOKit)
+    find_library(CoreServices CoreServices)
+endif()
+
+# BiosReader's personal code
+file(GLOB_RECURSE CFILES ${CMAKE_CURRENT_SOURCE_DIR}/src/private/*.c)
+# Shows the headerfile directory in project
+file(GLOB_RECURSE HEADERFILES ${CMAKE_CURRENT_SOURCE_DIR}/src/public/*.h)
+
+add_executable(${APPLICATION_NAME} ${CFILES} ${HEADERFILES})
+
+if(WIN32)
+    target_link_libraries(${APPLICATION_NAME} PUBLIC Ws2_32.lib)
+elseif(APPLE)
+    target_link_libraries(${APPLICATION_NAME} PUBLIC ${CoreServices} ${IOKit})
+elseif(UNIX AND NOT APPLE)
+    target_link_libraries(${APPLICATION_NAME} PUBLIC libcapng)
+endif()
+
+target_include_directories(${APPLICATION_NAME}
+    PRIVATE
+        # where the library itself will look for its internal headers
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/public
+    PUBLIC
+        # where top-level project will look for the library's public headers
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/public>
+        # where external projects will look for the library's public headers
+	$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+if(UNIX AND NOT APPLE)
+    add_custom_command(TARGET ${APPLICATION_NAME} POST_BUILD
+	    COMMAND cd ${REPOSITORYROOT}/BiosReaderBin/
+	    COMMAND mkdir temp
+	    COMMAND cp BiosReader temp/BiosReader
+	    COMMAND cd temp
+	    #COMMAND sudo install -o root -g root -m u=rxs,g=rx,o=x -t ${REPOSITORYROOT}/BiosReaderBin/lul ${REPOSITORYROOT}/BiosReaderBin/BiosReader
+	    COMMAND sudo install -o root -g root -m u=rxs,g-rx,o=x -t ${REPOSITORYROOT}/BiosReaderBin/ BiosReader
+	    COMMAND rm BiosReader
+	    COMMAND cd ${REPOSITORYROOT}/BiosReaderBin/
+	    COMMAND sudo rmdir temp
+    )
+endif()
 
 #[[
  *                                          /\

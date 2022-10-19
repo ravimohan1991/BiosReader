@@ -1,0 +1,3 @@
+[submodule "softvendor/libcapng"]
+	path = softvendor/libcapng
+	url = https://github.com/ravimohan1991/libcap-ng

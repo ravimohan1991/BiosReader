@@ -18,8 +18,10 @@ if(WIN32)
 	endif()
 elseif(UNIX AND NOT APPLE)
     add_compile_definitions(BR_LINUX_PLATFORM)
+    add_compile_definitions(__USE_GNU)
 elseif(APPLE)
     add_compile_definitions(BR_MAC_PLATFORM)
+    add_compile_definitions(__USE_GNU)
     find_library(IOKit IOKit)
     find_library(CoreServices CoreServices)
 endif()
@@ -32,11 +34,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 	add_compile_definitions(BR_DEBUG)
 endif()
 
+#[[
 # BiosReader's personal code
 file(GLOB_RECURSE CFILES ${CMAKE_CURRENT_SOURCE_DIR}/private/*.c)
 # Shows the headerfile directory in project
 file(GLOB_RECURSE HEADERFILES ${CMAKE_CURRENT_SOURCE_DIR}/public/*.h)
-
+]]
 # Building the project (STATIC or DYNAMIC (SHARED))
 # if (BUILD_SHARED_LIBS)
 #    add_library(${APPLICATION_NAME} SHARED ${CFILES} ${HEADERFILES})
@@ -44,12 +47,15 @@ file(GLOB_RECURSE HEADERFILES ${CMAKE_CURRENT_SOURCE_DIR}/public/*.h)
 #    add_library(${APPLICATION_NAME} STATIC ${CFILES} ${HEADERFILES})
 #endif()
 
+#[[
 add_executable(${APPLICATION_NAME} ${CFILES} ${HEADERFILES})
 
 if(WIN32)
     target_link_libraries(${APPLICATION_NAME} PUBLIC Ws2_32.lib)
 elseif(APPLE)
     target_link_libraries(${APPLICATION_NAME} PUBLIC ${CoreServices} ${IOKit})
+elseif(UNIX AND NOT APPLE)
+
 endif()
 
 target_include_directories(${APPLICATION_NAME}
@@ -62,7 +68,7 @@ target_include_directories(${APPLICATION_NAME}
         # where external projects will look for the library's public headers
         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
-
+]]
 #[[
  *                                          /\
  *                                         / /
