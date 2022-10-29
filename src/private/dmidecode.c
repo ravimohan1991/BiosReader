@@ -189,11 +189,11 @@ static void ascii_filter(char* bp, size_t len)
 /*
  *******************************************************************************************
  *
- *Extract relevant string from dmi_header structure
- *https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
- *@param dmi_header       The structure containing individual DMI structure data, seperated
- *@param s                Some offset to extract vendor or socket or all that information
- *@param filter           Replace non-ASCII (illegal?) characters with dots
+ * Extract relevant string from dmi_header structure
+ * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+ * @param dmi_header       The structure containing individual DMI structure data, seperated
+ * @param s                Some offset to extract vendor or socket or all that information
+ * @param filter           Replace non-ASCII (illegal?) characters with dots
  *
  *******************************************************************************************
  */
@@ -4302,17 +4302,123 @@ static void dmi_firmware_components(u8 count, const u8* p)
 	pr_list_end();
 }
 
+// Some global variables for BiosReader
+struct bios_information biosinformation;
 
+static void reset_electronics_structures()
+{
+	biosinformation.bIsFilled = 0;
+}
 
 static const char* get_raw_electronics_information()
 {
 	return "BLANK";
 }
 
+/*************************************************************************************
+ *
+ * A querying function itself.
+ * @param
+ *
+ *************************************************************************************
+ */
+
+static void* electronics_spit(enum bios_reader_information_classification informationCategory)
+{
+	/* Type of file sizes and offsets.  */
+	off_t fileOffset;
+	size_t fileSize; // Useful file size (the amount of data read)
+
+	//int efi;
+	u8* buffer = NULL;
+
+	// Nun standard C function
+	// Deserves a blog-post!
+#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
+	/*
+	 * We don't want stdout and stderr to be mixed up if both are
+	 * redirected to the same file.
+	 */
+	setlinebuf(stdout); // standard output stream
+	setlinebuf(stderr); // standard error output stream
+#endif // BR_LINUX_PLATFORM
+
+	/* Set default option values */
+	opt.handle = ~0U;
+
+
+	// Start from ground zero!
+	reset_electronics_structures();
+
+	fileSize = 0x20;
+	int found = 0;
+	int errorSpit = 0;
+	if ((buffer = read_file(0, &fileSize, SYS_ENTRY_FILE, &errorSpit)) != NULL)
+	{
+		if (fileSize >= 24 && memcmp(buffer, "_SM3_", 5) == 0)
+		{
+			if (smbios3_decode(buffer, SYS_TABLE_FILE, FLAG_NO_FILE_OFFSET))
+				found++;
+		}
+
+		if (found)
+		{
+			printf("Yeehaw, success!");
+		}
+		else
+		{
+			printf("Sorry couldn't get the job done.");
+		}
+	}
+	else if(errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
+	{
+		printf("Couldn't manipulate the short term privilege.\n");
+		printf("Kindly consult the friendly FOSSer.\n");
+
+		struct stat fileStatistics;
+		int result;
+
+		result = stat(SYS_ENTRY_FILE, &fileStatistics);
+
+		if(result == -1)
+		{
+			printf("There is something terribly wrong with the file %s, Goodbye!\n", SYS_ENTRY_FILE);
+		}
+
+		printf("The permissions of the file %s are like so %X\n", SYS_ENTRY_FILE, fileStatistics.st_mode);
+	}
+	else
+	{
+		printf("There is something terribly wrong with the file %s, Goodbye!/n", SYS_ENTRY_FILE);
+	}
+
+	switch(informationCategory)
+	{
+		case ss_bios:
+		return &biosinformation;
+
+		default:
+		return NULL;
+	}
+
+}
+
+
+
 
 /*
- * Main
+ * Main output
  * The juicy stuff!!
+ */
+
+/************************************************************************************
+ *
+ * Decoding DMI structures for electronics components, handle by handle!
+ * @param h                 Pointer to the dmi_header sturcture under the microscope
+ * @param ver               SMBIOS version in octal system, right shifted by 8,
+ *                          converted to unsigned short (observe the u32 -> u16)
+ *
+ ************************************************************************************
  */
 
 static void dmi_decode(const struct dmi_header* h, u16 ver)
@@ -4325,14 +4431,25 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	switch (h->type)
 	{
 	case 0: /* 7.1 BIOS Information */
+
 		pr_handle_name("BIOS Information");
-		if (h->length < 0x12) break;
-		pr_attr("Vendor", "%s",
-			dmi_string(h, data[0x04]));
-		pr_attr("Version", "%s",
-			dmi_string(h, data[0x05]));
-		pr_attr("Release Date", "%s",
-			dmi_string(h, data[0x08]));
+		if (h->length < 0x12)
+		{
+			break;
+		}
+
+		if(bDisplayOutput)
+		{
+			pr_attr("Vendor", "%s", dmi_string(h, data[0x04]));
+			pr_attr("Version", "%s", dmi_string(h, data[0x05]));
+			pr_attr("Release Date", "%s", dmi_string(h, data[0x08]));
+		}
+
+		biosinformation.vendor = dmi_string(h, data[0x04]);
+		biosinformation.version = dmi_string(h, data[0x05]);
+		biosinformation.biosreleasedate = dmi_string(h, data[0x08]);
+		biosinformation.bIsFilled = 1;
+
 		/*
 		 * On IA-64 and UEFI-based systems, the BIOS base
 		 * address will read 0 because there is no BIOS. Skip
@@ -5669,7 +5786,7 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 
 	if (!(flags & FLAG_FROM_API))
 	{
-		pr_info("Table at 0x%08llX.", (unsigned long long)base);// this line is running
+		pr_info("Table at 0x%08llX.", (unsigned long long)base);
 	}
 
 	pr_sep();

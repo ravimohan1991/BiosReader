@@ -99,6 +99,18 @@ struct central_processing_unit
 	char* restofthecharacterstics;
 };
 
+
+struct bios_information
+{
+	int bIsFilled;
+	const char* vendor;
+	const char* version;
+	const char* biosreleasedate;
+	char* bioscharacteristics;
+};
+
+struct bios_information extern biosinformation;
+
 enum bios_reader_information_classification
 {
 	// Pure Information
@@ -163,6 +175,10 @@ const char* dmi_string(const struct dmi_header* dm, u8 s);
 void dmi_print_memory_size(const char* addr, u64 code, int shift);
 void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...),
 	const char* label, enum cpuid_type sig, const u8* p);
+static int smbios3_decode(u8* buf, const char* devmem, u32 flags);
+
+// Should the electronics be displayed in console
+#define bDisplayOutput 1
 
 #ifdef BR_WINDOWS_PLATFORM
 int get_windows_platform(void);

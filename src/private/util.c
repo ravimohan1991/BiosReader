@@ -138,7 +138,8 @@ int checksum(const u8* buffer, size_t length)
 	return (sum == 0);
 }
 
-/*
+/*************************************************************************************
+ *
  * Reads all of file from given offset, up to max_len bytes.
  * A buffer of at most max_len bytes is allocated by this function, and
  * needs to be freed by the caller.
@@ -146,6 +147,8 @@ int checksum(const u8* buffer, size_t length)
  *
  * Returns a pointer to the allocated buffer, or NULL on error, and
  * sets max_len to the length actually read.
+ *
+ *************************************************************************************
  */
 
 int getresuid (__uid_t *__ruid, __uid_t *__euid, __uid_t *__suid);
