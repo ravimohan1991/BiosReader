@@ -186,6 +186,19 @@ static void ascii_filter(char* bp, size_t len)
 			bp[i] = '.';
 }
 
+/*
+ *******************************************************************************************
+ *
+ *Extract relevant string from dmi_header structure
+ *https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+ *@param dmi_header       The structure containing individual DMI structure data, seperated
+ *@param s                Some offset to extract vendor or socket or all that information
+ *@param filter           Replace non-ASCII (illegal?) characters with dots
+ *
+ *******************************************************************************************
+ */
+
+
 static char* _dmi_string(const struct dmi_header* dm, u8 s, int filter)
 {
 	char* bp = (char*)dm->data;
@@ -5379,14 +5392,26 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	pr_sep();
 }
 
+
 // Some type-cast gymnastics for extracting relevant information from buffer
-// may need to collect the algorithm for the variety of kernels (?)
+
+/*
+ ********************************************************************************************
+ *
+ * A swift convertor from individual DMI structure data to dmi_header for better readability
+ * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+ * @param dmi_header        struct for seperation of information as per table 3 present above
+ * @param data              An individual structure data
+ *
+ ********************************************************************************************
+ */
+
 static void to_dmi_header(struct dmi_header* h, u8* data)
 {
-	h->type = data[0];
-	h->length = data[1];
-	h->handle = WORD(data + 2);
-	h->data = data;
+	h->type = data[0]; // A BYTE worth
+	h->length = data[1]; // A BYTE worth
+	h->handle = WORD(data + 2); // Well, a WORD worth
+	h->data = data; // Entirety
 }
 
 static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver)
@@ -5440,15 +5465,18 @@ static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver
 	}
 }
 
-/*****************************************************************************************
- * Decoding the raw information spit by Bios of the electronics
+/*
+ **************************************************************************************************************************
+ *
+ * Decoding (parsing) the raw information spit by BIOS of the electronics
+ * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
  * @param buf      the raw information obtained from /sys/firmware/dmi/tables/DMI (Ubuntu)
- * @param len      12th (or 13 maybe) element of entrypoint buff derefrenced (smbios_entry_point)
- * @param num      number of **some** structures
+ * @param len      The size (in bytes) of the SMBIOS Structure Table. Kindly see the link above
+ * @param num      number of **some** structures. Fed 0 by hand, if called from smbios3_decode
  * @param ver      SMBIOS version in octal system, right shifted by 8, converted to unsigned short (observe the u32 -> u16)
- * @param
- * @param
- *****************************************************************************************
+ * @param flags    Both FLAG_NO_FILE_OFFSET and FLAG_STOP_AT_EOT are set
+ *
+ **************************************************************************************************************************
  */
 
 static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
@@ -5457,9 +5485,10 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 	int i = 0;
 
 	/* First pass: Save specific values needed to decode OEM (Original Equipment Manufacturer) types */
+	// An original equipment manufacturer (OEM) traditionally is defined as a company whose goods are used
+	// as components in the products of another company, which then sells the finished item to users.
 	data = buf;
-	while ((i < num || !num)
-		&& data + 4 <= buf + len) /* 4 is the length of an SMBIOS structure header */
+	while ((i < num || !num) && data + 4 <= buf + len) /* 4 is the length (in bytes) of an SMBIOS structure header */
 	{
 		u8* next;
 		struct dmi_header h;
@@ -5471,45 +5500,52 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 		 * is invalid, but we cannot reliably locate the next entry.
 		 * Also stop at end-of-table marker if so instructed.
 		 */
-		if (h.length < 4 ||
-			(h.type == 127))
+		if (h.length < 4 || (h.type == 127))
+		{
 			break;
-		i++;
+		}
+
+		/* Assign vendor for vendor-specific decodes later */
+		if (h.type == 1 && h.length >= 6)
+		{
+			dmi_set_vendor(_dmi_string(&h, data[0x04], 0), _dmi_string(&h, data[0x05], 0));
+		}
+
+		/* Remember CPUID type for HPE type 199 */
+		if (h.type == 4 && h.length >= 0x1A && cpuid_type == cpuid_none)
+		{
+			cpuid_type = dmi_get_cpuid_type(&h);
+		}
 
 		/* Look for the next handle */
 		next = data + h.length;
-		while ((unsigned long)(next - buf + 1) < len
-			&& (next[0] != 0 || next[1] != 0))
+
+		// Move forward till reach end or land on another DMI structure
+		while ((unsigned long)(next - buf + 1) < len && (next[0] != 0 || next[1] != 0))
+		{
 			next++;
+		}
 		next += 2;
 
 		/* Make sure the whole structure fits in the table */
 		if ((unsigned long)(next - buf) > len)
 			break;
 
-		/* Assign vendor for vendor-specific decodes later */
-		if (h.type == 1 && h.length >= 6)
-			dmi_set_vendor(_dmi_string(&h, data[0x04], 0),
-				_dmi_string(&h, data[0x05], 0));
-
-		/* Remember CPUID type for HPE type 199 */
-		if (h.type == 4 && h.length >= 0x1A && cpuid_type == cpuid_none)
-			cpuid_type = dmi_get_cpuid_type(&h);
 		data = next;
+		i++;
 	}
 
 	/* Second pass: Actually decode the data */
 	i = 0;
 	data = buf;
-	while ((i < num || !num)
-		&& data + 4 <= buf + len) /* 4 is the length of an SMBIOS structure header */
+	while ((i < num || !num) && data + 4 <= buf + len) /* 4 is the length of an SMBIOS structure header */
 	{
 		u8* next;
 		struct dmi_header h;
-		int display;
+		int binventoryItem;
 
 		to_dmi_header(&h, data);
-		display = ((opt.type == NULL || opt.type[h.type])
+		binventoryItem = ((opt.type == NULL || opt.type[h.type])
 			&& (opt.handle == ~0U || opt.handle == h.handle)
 			&& !((h.type == 126 || h.type == 127))
 			&& !opt.string);
@@ -5525,25 +5561,39 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 			fprintf(stderr, "Invalid entry length (%u). DMI table is broken! Stop.\n\n", (unsigned int)h.length);
 			break;
 		}
-		i++;
 
-		// This line runs
-		if (display)
+		/* Fixup a common mistake */
+		if (h.type == 34)
 		{
+			dmi_fixup_type_34(&h, binventoryItem);
+		}
+
+		// Ok it seems all checks are in place for this particular structure handle
+		// Now we can fill up relevant electonics structures
+		if (binventoryItem)
+		{
+			// Printing the inventory handle
 			pr_handle(&h);
+			// Handles for various electronics items (in the PC)
+			dmi_decode(&h, ver);
+		}
+		else if (opt.string != NULL && opt.string->type == h.type)
+		{
+			dmi_table_string(&h, data, ver);
 		}
 
 		/* Look for the next handle */
 		next = data + h.length;
-		while ((unsigned long)(next - buf + 1) < len
-			&& (next[0] != 0 || next[1] != 0))
+		while ((unsigned long)(next - buf + 1) < len && (next[0] != 0 || next[1] != 0))
+		{
 			next++;
+		}
 		next += 2;
 
 		/* Make sure the whole structure fits in the table */
 		if ((unsigned long)(next - buf) > len)
 		{
-			if (display)
+			if (binventoryItem)
 			{
 				pr_struct_err("<TRUNCATED>");
 			}
@@ -5552,31 +5602,20 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 			break;
 		}
 
-		/* Fixup a common mistake */
-		if (h.type == 34)
-			dmi_fixup_type_34(&h, display);
-
-		if (display)
-		{
-			// Handles for various electronics items (in the PC)
-			dmi_decode(&h, ver);
-		}
-		else if (opt.string != NULL
-			&& opt.string->type == h.type)
-		{
-			dmi_table_string(&h, data, ver);
-		}
-
 		data = next;
 
 		/* SMBIOS v3 requires stopping at this marker */
 		if (h.type == 127 && (flags & FLAG_STOP_AT_EOT))
+		{
 			break;
+		}
+		i++;
 	}
 
 	/*
 	 * SMBIOS v3 64-bit entry points do not announce a structures count,
 	 * and only indicate a maximum size for the table.
+	 * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
 	 */
 
 	if (num && i != num)
@@ -5590,20 +5629,28 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 
 }
 
-/**********************************************************************************
- * Analyzing the DMI file
- * @param base
- * @param len            12th (or 13) element of entrypoint buff derefrenced
- * @param num            number of **some** structures
+/*
+ *******************************************************************************************************
+ *
+ * Analyzing the DMI file by reading it and parsing the data into appropriate usable strucutures
+ * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+ * @param base           The 32-bit offset, extracted from entrypoint, encapsulated in off_t data-type
+ * @param len            The size (in bytes) of the SMBIOS Structure Table. Kindly see the link above
+ * @param num            Number of **some** structures. Fed 0 by hand, if called from smbios3_decode,
+ *                       because of SMBIOS version 3 guidelines
+ *                       Found this comment in late part of the code
+ *                       "SMBIOS v3 64-bit entry points do not announce a structures count,
+ *                       and only indicate a maximum size for the table".
  * @param ver            SMBIOS version in octal system, converted to unsigned int
- * @param devmem     The filename containing the data
- * @param flags
- * ********************************************************************************
+ * @param devmem         The filename containing the data
+ * @param flags          Both FLAG_NO_FILE_OFFSET and FLAG_STOP_AT_EOT are set
+ *
+ *******************************************************************************************************
  */
 
-static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
-	u32 flags)
+static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem, u32 flags)
 {
+	// 32-bit data reading is it?!
 	u8* buf;
 
 	if (ver > SUPPORTED_SMBIOS_VER)
@@ -5612,22 +5659,19 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 			SUPPORTED_SMBIOS_VER >> 16,
 			(SUPPORTED_SMBIOS_VER >> 8) & 0xFF,
 			SUPPORTED_SMBIOS_VER & 0xFF);
-		pr_comment("fully supported by this version of dmidecode.");
+		pr_comment("fully supported by this version of BioseReader.");
 	}
 
-	if (opt.type == NULL)
+	if (num)
 	{
-		if (num)
-		{
-			pr_info("%u structures occupying %u bytes.",
-				num, len);
-		}
-		if (!(flags & FLAG_FROM_API))
-		{
-			pr_info("Table at 0x%08llX.",
-				(unsigned long long)base);// this line is running
-		}
+		pr_info("%u structures occupying %u bytes.", num, len);
 	}
+
+	if (!(flags & FLAG_FROM_API))
+	{
+		pr_info("Table at 0x%08llX.", (unsigned long long)base);// this line is running
+	}
+
 	pr_sep();
 
 	if (flags & FLAG_NO_FILE_OFFSET)
@@ -5642,20 +5686,21 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		 */
 		size_t size = len;
 		int errorSpit = 0;
-		// read the file /sys/firmware/dmi/tables/DMI (Ubuntu)
-		buf = read_file(flags & FLAG_NO_FILE_OFFSET ? 0 : base,
-			&size, devmem, &errorSpit);
 
+		// read the file /sys/firmware/dmi/tables/DMI (Ubuntu)
+		buf = read_file(flags & FLAG_NO_FILE_OFFSET ? 0 : base, &size, devmem, &errorSpit);
+
+		//Sanity check!!
 		if (num && size != (size_t)len)
 		{
 			fprintf(stderr, "Wrong DMI structures length: %u bytes "
-				"announced, only %lu bytes available.\n",
-				len, (unsigned long)size);
+				"announced, only %lu bytes available.\n", len, (unsigned long)size);
 		}
-		len = size;
 	}
 	else
+	{
 		buf = mem_chunk(base, len, devmem);
+	}
 
 #ifdef BR_MAC_PLATFORM
 	// read tables returned by API call
@@ -5717,12 +5762,14 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		fprintf(stderr, "Failed to read table, sorry.\n");
 #ifndef USE_MMAP
 		if (!(flags & FLAG_NO_FILE_OFFSET))
-			fprintf(stderr,
-				"Try compiling dmidecode with -DUSE_MMAP.\n");
+		{
+			fprintf(stderr, "Try compiling BiosReader with -DUSE_MMAP.\n");
+		}
 #endif
 		return;
 	}
 
+	// Let's boogie!
 	dmi_table_decode(buf, len, num, ver >> 8, flags);
 
 	free(buf);
@@ -5758,13 +5805,20 @@ static void overwrite_smbios3_address(u8* buf)
 }
 
 // The bread and butter of our little awesome library
-
-/*************************************************************************
+/*
+ *****************************************************************************************************************
+ *
  * Decoding the raw information spit by Bios of the electronics
- * @param buf           the allocated buffer (raw information) from read_file
- * @param devmem
- * @param flags
- * ***********************************************************************
+ * Most likely you would want to read https://www.dmtf.org/standards/smbios
+ * for version 3 and up!
+ *
+ * @param buf           the allocated buffer (raw information about SMBIOS version, checksum size, and all that)
+ *                      from (/sys/firmware/dmi/tables/smbios_entry_point)
+ * @param devmem        the file containing the table to be parsed for information (../tables/DMI)
+ * @param flags         FLAG_NO_FILE_OFFSET
+ * @return int          1 on success and 0 on faliure
+ *
+ *****************************************************************************************************************
  */
 
 static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
@@ -5785,22 +5839,26 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 	if (!checksum(buf, buf[0x06]))
 		return 0;
 
+	// Extract the version (https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information)
 	ver = (buf[0x07] << 16) + (buf[0x08] << 8) + buf[0x09];
 	pr_info("SMBIOS %u.%u.%u present.", buf[0x07], buf[0x08], buf[0x09]);
 
-	// QWORD (*(const u64 *)(x))
-	// dunno why const is here
+	// offset for identifying the fully packed SMBIOS structures (containing electronics information)
+	// again, refer to (https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information)
 	offset = QWORD(buf + 0x10);
 
-	// Need to understand the 64 bit architecture detection trick
-	if (!(flags & FLAG_NO_FILE_OFFSET) && offset.h && sizeof(off_t) < 8)
+	// To understand the 64 bit architecture detection trick
+	// https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+	// https://github.com/ravimohan1991/BiosReader/wiki/C-Type-Casting,-Machine-POV
+	if (offset.h && sizeof(off_t) < 8)
 	{
 		fprintf(stderr, "64-bit addresses not supported, sorry.\n");
 		return 0;
 	}
 
-	dmi_table(((off_t)offset.h << 32) | offset.l,
-		DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
+	// Not really sure why trimming of upper part is needed when we have elminated that case earlier!?
+	// For version 3, the number of structures are not present in the table :(. So we feed zero
+	dmi_table(((off_t)offset.h << 32) | offset.l, DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
 
 	return 1;
 }
@@ -6129,8 +6187,8 @@ int main(int argc, char* const argv[])
 #endif // BR_LINUX_PLATFORM
 
 	/* Set default option values */
-	opt.devmem = DEFAULT_MEM_DEV; // An entry point into Bios it seems
-	opt.flags = 0; // Commandline parameters are compared against which
+	//opt.devmem = DEFAULT_MEM_DEV; // for EFI purposes which I don't think I will be going with
+	//opt.flags = 0; // Commandline parameters are compared against which
 	opt.handle = ~0U;
 
 #if defined BR_MAC_PLATFORM
@@ -6144,7 +6202,7 @@ int main(int argc, char* const argv[])
 #endif // BR_MAC_PLATFORM
 
 	/*
-	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, tt provides a means to export kernel data structures,
+	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, it provides a means to export kernel data structures,
 	 * their attributes, and the linkages between them to userspace).  The entry point file could
 	 * contain one of several types of entry points, so read enough for
 	 * the largest one, then determine what type it contains.
@@ -6178,8 +6236,11 @@ int main(int argc, char* const argv[])
 			printf("Sorry couldn't get the job done.");
 		}
 	}
-	else if(errorSpit == 13) // see erno-base.h for linux and unix maybe
+	else if(errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
 	{
+		printf("Couldn't manipulate the short term privilege.\n");
+		printf("Kindly consult the friendly FOSSer.\n");
+
 		struct stat fileStatistics;
 		int result;
 
@@ -6187,17 +6248,15 @@ int main(int argc, char* const argv[])
 
 		if(result == -1)
 		{
-			printf("There is something terribly wrong with the file %s, Goodbye!", SYS_ENTRY_FILE);
+			printf("There is something terribly wrong with the file %s, Goodbye!\n", SYS_ENTRY_FILE);
 			return 1;
 		}
 
 		printf("The permissions of the file %s are like so %X\n", SYS_ENTRY_FILE, fileStatistics.st_mode);
-
-		printf("Couldn't read the file, appropriate access required.\n");
 	}
 	else
 	{
-		printf("There is something terribly wrong with the file %s, Goodbye!", SYS_ENTRY_FILE);
+		printf("There is something terribly wrong with the file %s, Goodbye!/n", SYS_ENTRY_FILE);
 		return 1;
 	}
 

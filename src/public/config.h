@@ -33,13 +33,14 @@
 #endif
 
 /* Use memory alignment workaround or not */
-#if defined(__ia64__) || defined(__LP64__)
-#define ALIGNMENT_WORKAROUND
-#endif
+// for relevant macros list, please see https://sourceforge.net/p/predef/wiki/Architectures/
+//#if defined(__ia64__) || defined(__LP64__)
+//#define ALIGNMENT_WORKAROUND
+//#endif
 
 /* Avoid unaligned memcpy on /dev/mem */
-#ifdef __aarch64__
-#define USE_SLOW_MEMCPY
-#endif
+//#ifdef __aarch64__
+//#define USE_SLOW_MEMCPY
+//#endif
 
 #endif

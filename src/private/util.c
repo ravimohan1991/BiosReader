@@ -113,13 +113,28 @@ static int myread(int fildes, u8* buffer, size_t rSize, const char* fileName)
 	return 0;
 }
 
-int checksum(const u8* buf, size_t len)
+/*
+ * Function to verify the integrity of entry point structure by
+ * ensuring that length of entry point structure "completely wraps (?)
+ * and covers" the buffer in consistent fashion.
+ * For more information please refer to table at
+ * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+ *
+ * @param buffer              The raw form of Entry Point Structure information obtained
+ * @param lenth               The length in bytes to verify with
+ * @return int                1 (true) if integrity is intact, 0 (false) elsewise
+ */
+
+int checksum(const u8* buffer, size_t length)
 {
 	u8 sum = 0;
-	size_t a;
+	size_t counter;
 
-	for (a = 0; a < len; a++)
-		sum += buf[a];
+	for (counter = 0; counter < length; counter++)
+	{
+		sum += buffer[counter];
+	}
+
 	return (sum == 0);
 }
 
@@ -138,19 +153,15 @@ int getresgid (__gid_t *__rgid, __gid_t *__egid, __gid_t *__sgid);
 int setresuid (__uid_t __ruid, __uid_t __euid, __uid_t __suid);
 int setresgid (__gid_t __rgid, __gid_t __egid, __gid_t __sgid);
 
-void*  read_file(off_t base, size_t* max_len, const char* filename, int* file_access)
+void* read_file(off_t base, size_t* max_len, const char* filename, int* file_access)
 {
 	struct stat statbuf;
 	int fd;
 	u8* p;
 
-	//set_ambient_cap(CAP_SETUID);//CAP_DAC_OVERRIDE);//CAP_SETUID);//CAP_FOWNER);//CAP_SYS_ADMIN); cap_sys_admin
-
 	uid_t ruid, euid, suid; /* Real, Effective, Saved user ID */
 	gid_t rgid, egid, sgid; /* Real, Effective, Saved group ID */
 	int uerr, gerr;
-
-	//int lalaland = setuid(0);
 
 	if (getresuid(&ruid, &euid, &suid) == -1)
 	{
@@ -285,7 +296,40 @@ err_free:
 
 out:
 	if (close(fd) == -1)
+	{
 		perror(filename);
+	}
+
+	/* Drop privileges. */
+	gerr = 0;
+	if (setresgid(rgid, rgid, rgid) == -1)
+	{
+		gerr = errno;
+		if (!gerr)
+		gerr = EINVAL;
+	}
+	uerr = 0;
+	if (setresuid(ruid, ruid, ruid) == -1)
+	{
+		uerr = errno;
+		if (!uerr)
+		{
+			uerr = EINVAL;
+		}
+	}
+	if (uerr || gerr)
+	{
+		if (uerr)
+		{
+			fprintf(stderr, "Cannot drop user privileges: %s.\n", strerror(uerr));
+		}
+		if (gerr)
+		{
+			fprintf(stderr, "Cannot drop group privileges: %s.\n", strerror(gerr));
+		}
+
+		return NULL;
+	}
 
 	return p;
 }

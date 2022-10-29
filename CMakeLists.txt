@@ -45,7 +45,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 #----------------------------------------------------------------------------#
 
-# Set Engine project
+# Set Application project
 project(${APPLICATION_NAME} VERSION 1.0)
 #add_compile_definitions(KR_APPLICATION_NAME="${KARMA_GAME_NAME}")
 
@@ -58,10 +58,24 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror-implicit-function-declaration")
 endif()
 
+# Remember it is SMBIOS data that is stored in LE format
+# Our program however can be facing any of the BE or LE (not sure about middle-endian or mixed-endian) compilation palatform
+if(CMAKE_C_BYTE_ORDER STREQUAL "BIG_ENDIAN")
+	add_compile_definitions(BR_BIG_ENDIAN)
+elseif(CMAKE_C_BYTE_ORDER STREQUAL "LITTLE_ENDIAN")
+	add_compile_definitions(BR_LITTLE_ENDIAN)
+endif()
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    add_compile_definitions(BR_SIXTY_FOUR_BIT_ISA)
+elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+    add_compile_definitions(BR_THIRTY_TWO_BIT_ISA)
+endif()
+
+
 # Then we specify the involved libraries
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/softvendor/libcapng)
 #add_subdirectory(src)
-
 
 if(WIN32)
     add_compile_definitions(BR_WINDOWS_PLATFORM)
