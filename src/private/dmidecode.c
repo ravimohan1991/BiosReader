@@ -76,7 +76,7 @@
  *    https://developer.apple.com/documentation/iokit
  */
 
-// Common Libraries
+ // Common Libraries
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -153,7 +153,7 @@ enum OperatingSystem
 };
 
 #ifdef BR_WINDOWS_PLATFORM
-enum OperatingSystem SubjectOS SubjectOS = Windows;
+enum OperatingSystem SubjectOS = Windows;
 #elif BR_LINUX_PLATFORM
 enum OperatingSystem SubjectOS = Linux;
 #elif BR_MAC_PLATFORM
@@ -197,7 +197,6 @@ static void ascii_filter(char* bp, size_t len)
  *
  *******************************************************************************************
  */
-
 
 static char* _dmi_string(const struct dmi_header* dm, u8 s, int filter)
 {
@@ -302,6 +301,88 @@ static int dmi_bcd_range(u8 value, u8 low, u8 high)
 	return 1;
 }
 
+unsigned long dmi_compute_memory_size_numerical_part(u64 code)
+{
+	unsigned long capacity;
+	u16 split[7];
+	static const char* unit[8] = {
+		"bytes", "kB", "MB", "GB", "TB", "PB", "EB", "ZB"
+	};
+	int i;
+
+	/*
+	 * We split the overall size in powers of thousand: EB, PB, TB, GB,
+	 * MB, kB and B. In practice, it is expected that only one or two
+	 * (consecutive) of these will be non-zero.
+	 */
+	split[0] = code.l & 0x3FFUL;
+	split[1] = (code.l >> 10) & 0x3FFUL;
+	split[2] = (code.l >> 20) & 0x3FFUL;
+	split[3] = ((code.h << 2) & 0x3FCUL) | (code.l >> 30);
+	split[4] = (code.h >> 8) & 0x3FFUL;
+	split[5] = (code.h >> 18) & 0x3FFUL;
+	split[6] = code.h >> 28;
+
+	/*
+	 * Now we find the highest unit with a non-zero value. If the following
+	 * is also non-zero, we use that as our base. If the following is zero,
+	 * we simply display the highest unit.
+	 */
+	for (i = 6; i > 0; i--)
+	{
+		if (split[i])
+			break;
+	}
+	if (i > 0 && split[i - 1])
+	{
+		i--;
+		capacity = split[i] + (split[i + 1] << 10);
+	}
+	else
+		capacity = split[i];
+
+	return capacity;
+}
+
+static const char* dmi_compute_memory_size_units_or_dimensions_part(u64 code, int shift)
+{
+	unsigned long capacity;
+	u16 split[7];
+	int i;
+
+	/*
+	 * We split the overall size in powers of thousand: EB, PB, TB, GB,
+	 * MB, kB and B. In practice, it is expected that only one or two
+	 * (consecutive) of these will be non-zero.
+	 */
+	split[0] = code.l & 0x3FFUL;
+	split[1] = (code.l >> 10) & 0x3FFUL;
+	split[2] = (code.l >> 20) & 0x3FFUL;
+	split[3] = ((code.h << 2) & 0x3FCUL) | (code.l >> 30);
+	split[4] = (code.h >> 8) & 0x3FFUL;
+	split[5] = (code.h >> 18) & 0x3FFUL;
+	split[6] = code.h >> 28;
+
+	/*
+	 * Now we find the highest unit with a non-zero value. If the following
+	 * is also non-zero, we use that as our base. If the following is zero,
+	 * we simply display the highest unit.
+	 */
+	for (i = 6; i > 0; i--)
+	{
+		if (split[i])
+			break;
+	}
+	if (i > 0 && split[i - 1])
+	{
+		i--;
+		capacity = split[i] + (split[i + 1] << 10);
+	}
+	else
+		capacity = split[i];
+
+	return memoUnit[i + shift];
+}
 
 /* shift is 0 if the value is in bytes, 1 if it is in kilobytes */
 void dmi_print_memory_size(const char* attr, u64 code, int shift)
@@ -368,19 +449,34 @@ static void dmi_bios_runtime_size(u32 code)
 	pr_attr("Runtime Size", format, code);
 }
 
-static void dmi_bios_rom_size(u8 code1, u16 code2)
+static void dmi_bios_rom_size(u8 code1, u16 code2, const char* writeBuffer)
 {
 	static const char* unit[4] = {
 		"MB", "GB", out_of_spec, out_of_spec
 	};
 
+	char sizeInformation[8];
+
 	if (code1 != 0xFF)
 	{
 		u64 s = { .l = (code1 + 1) << 6 };
-		dmi_print_memory_size("ROM Size", s, 1);
+		if (bDisplayOutput)
+		{
+			dmi_print_memory_size("ROM Size", s, 1);
+		}
+		// Here 8 is the size of buffer for safety!!
+		sprintf_s(sizeInformation, 8, "%u %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
 	}
 	else
-		pr_attr("ROM Size", "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("ROM Size", "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
+		}
+		sprintf_s(sizeInformation, 8, "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
+	}
+
+	copy_to_structure_char(writeBuffer, sizeInformation);
 }
 
 static void dmi_bios_characteristics(u64 code)
@@ -4302,12 +4398,21 @@ static void dmi_firmware_components(u8 count, const u8* p)
 	pr_list_end();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Care  needs be taken for out-of-space-order sequence of C routines!
+
 // Some global variables for BiosReader
 struct bios_information biosinformation;
+static int bAlreadyRun = 0;
 
-static void reset_electronics_structures()
+void reset_electronics_structures()
 {
+	// Bios information clearence
 	biosinformation.bIsFilled = 0;
+	free(biosinformation.vendor);
+	free(biosinformation.version);
+	free(biosinformation.biosreleasedate);
+	free(biosinformation.biosromsize);
 }
 
 static const char* get_raw_electronics_information()
@@ -4315,15 +4420,41 @@ static const char* get_raw_electronics_information()
 	return "BLANK";
 }
 
-/*************************************************************************************
+/****************************************************************************************************************
  *
  * A querying function itself.
- * @param
- *
- *************************************************************************************
+ * @param informationCategory                   The category of electronics related information
+ * @return void*                                The pointer to the struct corresponding to the query made to
+ *                                              Bios Reader (BR)
+ ****************************************************************************************************************
  */
 
 void* electronics_spit(enum bios_reader_information_classification informationCategory)
+{
+	if (bAlreadyRun == 0)
+	{
+		ashwamegha_run();
+	}
+
+	// Experimental returning pointers
+	switch (informationCategory)
+	{
+	case ss_bios:
+		return &biosinformation;
+
+	default:
+		return NULL;
+	}
+}
+
+/***********************************************************************************************************
+ *
+ * A free run to fill up all possible electronics structures
+ *
+ **********************************************************************************************************
+ */
+
+static void ashwamegha_run()
 {
 	/* Type of file sizes and offsets.  */
 	off_t fileOffset;
@@ -4343,9 +4474,9 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 	setlinebuf(stderr); // standard error output stream
 #endif // BR_LINUX_PLATFORM
 
+#ifdef BR_LINUX_PLATFORM
 	/* Set default option values */
 	opt.handle = ~0U;
-
 
 	// Start from ground zero!
 	reset_electronics_structures();
@@ -4370,7 +4501,7 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 			printf("Sorry couldn't get the job done.");
 		}
 	}
-	else if(errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
+	else if (errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
 	{
 		printf("Couldn't manipulate the short term privilege.\n");
 		printf("Kindly consult the friendly FOSSer.\n");
@@ -4380,7 +4511,7 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 
 		result = stat(SYS_ENTRY_FILE, &fileStatistics);
 
-		if(result == -1)
+		if (result == -1)
 		{
 			printf("There is something terribly wrong with the file %s, Goodbye!\n", SYS_ENTRY_FILE);
 		}
@@ -4392,34 +4523,55 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 		printf("There is something terribly wrong with the file %s, Goodbye!/n", SYS_ENTRY_FILE);
 	}
 
-	switch(informationCategory)
+	switch (informationCategory)
 	{
-		case ss_bios:
+	case ss_bios:
 		return &biosinformation;
 
-		default:
+	default:
 		return NULL;
 	}
+#endif // BR_LINUX_PLATFORM
 
+#ifdef BR_WINDOWS_PLATFORM
+	opt.handle = ~0U;
+	PRawSMBIOSData rawInformation = get_raw_smbios_table();
+
+	// Now we shall attempt parsing of the information into Human readable data
+
+	// first let me see how many structures
+	u16 structuresNumber = count_smbios_structures(rawInformation, rawInformation->Length);
+	printf("Number of structures found %i \n", structuresNumber);
+
+	u8* data = rawInformation->SMBIOSTableData;
+
+	dmi_table_decode(data, rawInformation->Length, structuresNumber, 8, 0);
+#endif // BR_WINDOWS_PLATFORM
+
+	bAlreadyRun = 1;
 }
 
-
-
+static void copy_to_structure_char(const char** destinationPointer, const char* sourcePointer)
+{
+	size_t sourceSize = sizeof(char) * strlen(sourcePointer) + 1;
+	*destinationPointer = malloc(sourceSize);
+	strcpy_s(*destinationPointer, sourceSize, sourcePointer);
+}
 
 /*
  * Main output
  * The juicy stuff!!
  */
 
-/************************************************************************************
- *
- * Decoding DMI structures for electronics components, handle by handle!
- * @param h                 Pointer to the dmi_header sturcture under the microscope
- * @param ver               SMBIOS version in octal system, right shifted by 8,
- *                          converted to unsigned short (observe the u32 -> u16)
- *
- ************************************************************************************
- */
+ /************************************************************************************
+  *
+  * Decoding DMI structures for electronics components, handle by handle!
+  * @param h                 Pointer to the dmi_header sturcture under the microscope
+  * @param ver               SMBIOS version in octal system, right shifted by 8,
+  *                          converted to unsigned short (observe the u32 -> u16)
+  *
+  ************************************************************************************
+  */
 
 static void dmi_decode(const struct dmi_header* h, u16 ver)
 {
@@ -4438,16 +4590,16 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			break;
 		}
 
-		if(bDisplayOutput)
+		if (bDisplayOutput)
 		{
 			pr_attr("Vendor", "%s", dmi_string(h, data[0x04]));
 			pr_attr("Version", "%s", dmi_string(h, data[0x05]));
 			pr_attr("Release Date", "%s", dmi_string(h, data[0x08]));
 		}
 
-		biosinformation.vendor = dmi_string(h, data[0x04]);
-		biosinformation.version = dmi_string(h, data[0x05]);
-		biosinformation.biosreleasedate = dmi_string(h, data[0x08]);
+		copy_to_structure_char(&biosinformation.vendor, dmi_string(h, data[0x04]));
+		copy_to_structure_char(&biosinformation.version, dmi_string(h, data[0x05]));
+		copy_to_structure_char(&biosinformation.biosreleasedate, dmi_string(h, data[0x08]));
 		biosinformation.bIsFilled = 1;
 
 		/*
@@ -4457,11 +4609,14 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		 */
 		if (WORD(data + 0x06) != 0)
 		{
-			pr_attr("Address", "0x%04X0",
-				WORD(data + 0x06));
-			dmi_bios_runtime_size((0x10000 - WORD(data + 0x06)) << 4);
+			if (bDisplayOutput)
+			{
+				pr_attr("Address", "0x%04X0", WORD(data + 0x06));
+				dmi_bios_runtime_size((0x10000 - WORD(data + 0x06)) << 4);
+			}
 		}
-		dmi_bios_rom_size(data[0x09], h->length < 0x1A ? 16 : WORD(data + 0x18));
+		dmi_bios_rom_size(data[0x09], h->length < 0x1A ? 16 : WORD(data + 0x18), & biosinformation.biosromsize);
+
 		pr_list_start("Characteristics", NULL);
 		dmi_bios_characteristics(QWORD(data + 0x0A));
 		pr_list_end();
@@ -4846,7 +5001,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		pr_handle_name("Memory Device");
 		if (h->length < 0x15) break;
 		pr_attr("Array Handle", "0x%04X",
-				WORD(data + 0x04));
+			WORD(data + 0x04));
 		dmi_memory_array_error_handle(WORD(data + 0x06));
 		dmi_memory_device_width("Total Width", WORD(data + 0x08));
 		dmi_memory_device_width("Data Width", WORD(data + 0x0A));
@@ -5252,7 +5407,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		pr_handle_name("Management Device Component");
 		if (h->length < 0x0B) break;
 		pr_attr("Description", "%s",
-		dmi_string(h, data[0x04]));
+			dmi_string(h, data[0x04]));
 
 		pr_attr("Management Device Handle", "0x%04X",
 			WORD(data + 0x05));
@@ -5509,7 +5664,6 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	pr_sep();
 }
 
-
 // Some type-cast gymnastics for extracting relevant information from buffer
 
 /*
@@ -5743,7 +5897,6 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 	{
 		fprintf(stderr, "Wrong DMI structures length: %u bytes announced, structures occupy %lu bytes.\n", len, (unsigned long)(data - buf));
 	}
-
 }
 
 /*
@@ -6318,6 +6471,7 @@ int main(int argc, char* const argv[])
 
 #endif // BR_MAC_PLATFORM
 
+#ifdef BR_LINUX_PLATFORM
 	/*
 	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, it provides a means to export kernel data structures,
 	 * their attributes, and the linkages between them to userspace).  The entry point file could
@@ -6353,7 +6507,7 @@ int main(int argc, char* const argv[])
 			printf("Sorry couldn't get the job done.");
 		}
 	}
-	else if(errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
+	else if (errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
 	{
 		printf("Couldn't manipulate the short term privilege.\n");
 		printf("Kindly consult the friendly FOSSer.\n");
@@ -6363,7 +6517,7 @@ int main(int argc, char* const argv[])
 
 		result = stat(SYS_ENTRY_FILE, &fileStatistics);
 
-		if(result == -1)
+		if (result == -1)
 		{
 			printf("There is something terribly wrong with the file %s, Goodbye!\n", SYS_ENTRY_FILE);
 			return 1;
@@ -6390,7 +6544,6 @@ int main(int argc, char* const argv[])
 		returnValue = 1;
 		goto exit_free;
 	}
-
 
 	pr_info("Found SMBIOS entry point in EFI, reading table from %s.", opt.devmem);
 
@@ -6457,6 +6610,7 @@ memory_scan:
 		}
 	}
 #endif
+#endif// BR_LINUX_PLATFORM
 
 #ifdef BR_WINDOWS_PLATFORM
 	PRawSMBIOSData rawInformation = get_raw_smbios_table();

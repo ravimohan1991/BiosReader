@@ -151,10 +151,12 @@ int checksum(const u8* buffer, size_t length)
  *************************************************************************************
  */
 
-int getresuid (__uid_t *__ruid, __uid_t *__euid, __uid_t *__suid);
-int getresgid (__gid_t *__rgid, __gid_t *__egid, __gid_t *__sgid);
-int setresuid (__uid_t __ruid, __uid_t __euid, __uid_t __suid);
-int setresgid (__gid_t __rgid, __gid_t __egid, __gid_t __sgid);
+#ifdef BR_LINUX_PLATFORM
+int getresuid(__uid_t* __ruid, __uid_t* __euid, __uid_t* __suid);
+int getresgid(__gid_t* __rgid, __gid_t* __egid, __gid_t* __sgid);
+int setresuid(__uid_t __ruid, __uid_t __euid, __uid_t __suid);
+int setresgid(__gid_t __rgid, __gid_t __egid, __gid_t __sgid);
+#endif // BR_LINUX_PLATFORM
 
 void* read_file(off_t base, size_t* max_len, const char* filename, int* file_access)
 {
@@ -162,6 +164,7 @@ void* read_file(off_t base, size_t* max_len, const char* filename, int* file_acc
 	int fd;
 	u8* p;
 
+#ifdef BR_LINUX_PLATFORM
 	uid_t ruid, euid, suid; /* Real, Effective, Saved user ID */
 	gid_t rgid, egid, sgid; /* Real, Effective, Saved group ID */
 	int uerr, gerr;
@@ -209,15 +212,15 @@ void* read_file(off_t base, size_t* max_len, const char* filename, int* file_acc
 	}
 
 	/* ... privileged operations ... */
-
+#endif// BR_LINUX_PLATFORM
 	/*
 	 * Open the restricted file.
 	 */
 
-	/*
-	 * Don't print error message on missing file, as we will try to read
-	 * files that may or may not be present.
-	 */
+	 /*
+	  * Don't print error message on missing file, as we will try to read
+	  * files that may or may not be present.
+	  */
 	if ((fd = open(filename, O_RDONLY)) == -1)
 	{
 		if (errno != ENOENT)
@@ -260,13 +263,14 @@ void* read_file(off_t base, size_t* max_len, const char* filename, int* file_acc
 	if (myread(fd, p, *max_len, filename) == 0)
 		goto out;
 
+#ifdef BR_LINUX_PLATFORM
 	/* Drop privileges. */
 	gerr = 0;
 	if (setresgid(rgid, rgid, rgid) == -1)
 	{
 		gerr = errno;
 		if (!gerr)
-		gerr = EINVAL;
+			gerr = EINVAL;
 	}
 	uerr = 0;
 	if (setresuid(ruid, ruid, ruid) == -1)
@@ -292,6 +296,7 @@ void* read_file(off_t base, size_t* max_len, const char* filename, int* file_acc
 	}
 
 	/* ... unprivileged operations ... */
+#endif// BR_LINUX_PLATFORM
 
 err_free:
 	free(p);
@@ -303,13 +308,14 @@ out:
 		perror(filename);
 	}
 
+#ifdef BR_LINUX_PLATFORM
 	/* Drop privileges. */
 	gerr = 0;
 	if (setresgid(rgid, rgid, rgid) == -1)
 	{
 		gerr = errno;
 		if (!gerr)
-		gerr = EINVAL;
+			gerr = EINVAL;
 	}
 	uerr = 0;
 	if (setresuid(ruid, ruid, ruid) == -1)
@@ -333,7 +339,7 @@ out:
 
 		return NULL;
 	}
-
+#endif// BR_LINUX_PLATFORM
 	return p;
 }
 

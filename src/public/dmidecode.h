@@ -23,7 +23,6 @@
 
 #include "types.h"
 
-
 struct motherboard_components
 {
 	char* baseboard;
@@ -99,14 +98,15 @@ struct central_processing_unit
 	char* restofthecharacterstics;
 };
 
-
 struct bios_information
 {
 	int bIsFilled;
-	const char* vendor;
-	const char* version;
-	const char* biosreleasedate;
+
+	char* vendor;
+	char* version;
+	char* biosreleasedate;
 	char* bioscharacteristics;
+	char* biosromsize;
 };
 
 struct bios_information extern biosinformation;
@@ -135,9 +135,9 @@ enum bios_reader_information_classification
 #define WIN_2003_VISTA        (1 << 2)
 #define WIN_10                (1 << 3)
 
- /*
-  * Struct needed to get the SMBIOS table using GetSystemFirmwareTable API.
-  */
+/*
+ * Struct needed to get the SMBIOS table using GetSystemFirmwareTable API.
+ */
 typedef struct _RawSMBIOSData
 {
 	u8	Used20CallingMethod;
@@ -177,22 +177,31 @@ void dmi_print_memory_size(const char* addr, u64 code, int shift);
 void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...),
 	const char* label, enum cpuid_type sig, const u8* p);
 static int smbios3_decode(u8* buf, const char* devmem, u32 flags);
+static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags);
+void reset_electronics_structures();
+static void ashwamegha_run();
+static void copy_to_structure_char(const char** destinationPointer, const char* sourcePointer);
 
-#ifdef __cplusplus
-extern "C"{
-#endif
+//#ifdef __cplusplus
+//extern "C" {
+//#endif
 void* electronics_spit(enum bios_reader_information_classification informationCategory);
-#ifdef __cplusplus
-}
-#endif
+//#ifdef __cplusplus
+//}
+//#endif
 
 // Should the electronics be displayed in console
-#define bDisplayOutput 1
+#define bDisplayOutput 0
 
 #ifdef BR_WINDOWS_PLATFORM
 int get_windows_platform(void);
 RawSMBIOSData* get_raw_smbios_table(void);
 int count_smbios_structures(const void* buff, u32 len);
 #endif
+
+// Metric system for electronicssss
+static const char* memoUnit[8] = {
+		"bytes", "kB", "MB", "GB", "TB", "PB", "EB", "ZB"
+};
 
 #endif
