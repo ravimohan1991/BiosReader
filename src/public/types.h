@@ -47,7 +47,8 @@ typedef struct
 	u32 h;
 	u32 l;
 } u64;
-#elif BR_LITTLE_ENDIAN
+#endif
+#ifdef BR_LITTLE_ENDIAN
 typedef struct
 {
 	u32 l;
@@ -76,7 +77,9 @@ static inline u64 U64(u32 low, u32 high)
 #define WORD(x) (u16)((x)[0] + ((x)[1] << 8))
 #define DWORD(x) (u32)((x)[0] + ((x)[1] << 8) + ((x)[2] << 16) + ((x)[3] << 24))
 #define QWORD(x) (U64(DWORD(x), DWORD(x + 4)))
-#elif BR_LITTLE_ENDIAN
+#endif
+
+#ifdef BR_LITTLE_ENDIAN
 #define WORD(x) (u16)(*(const u16 *)(x))
 #define DWORD(x) (u32)(*(const u32 *)(x)) // dereference of pointer to const u32
 #define QWORD(x) (*(const u64 *)(x)) // dereference of pointer to const u64

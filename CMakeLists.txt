@@ -84,6 +84,7 @@ target_include_directories(${APPLICATION_NAME}
 target_compile_definitions(${APPLICATION_NAME} PUBLIC BiosReader)
 
 # Post build command
+#[[
 if(UNIX AND NOT APPLE)
 	if (BUILD_SHARED_LIBS)
 	    set(Library_NAME "libBiosReader.so")
@@ -102,7 +103,7 @@ if(UNIX AND NOT APPLE)
 	    COMMAND sudo rmdir temp
     )
 endif()
-
+]]
 #[[
  *                                          /\
  *                                         / /

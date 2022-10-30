@@ -4323,7 +4323,7 @@ static const char* get_raw_electronics_information()
  *************************************************************************************
  */
 
-static void* electronics_spit(enum bios_reader_information_classification informationCategory)
+void* electronics_spit(enum bios_reader_information_classification informationCategory)
 {
 	/* Type of file sizes and offsets.  */
 	off_t fileOffset;

@@ -169,6 +169,7 @@ enum cpuid_type
 };
 
 extern enum cpuid_type cpuid_type;
+struct u64;
 
 int is_printable(const u8* data, int len);
 const char* dmi_string(const struct dmi_header* dm, u8 s);
@@ -176,6 +177,14 @@ void dmi_print_memory_size(const char* addr, u64 code, int shift);
 void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...),
 	const char* label, enum cpuid_type sig, const u8* p);
 static int smbios3_decode(u8* buf, const char* devmem, u32 flags);
+
+#ifdef __cplusplus
+extern "C"{
+#endif
+void* electronics_spit(enum bios_reader_information_classification informationCategory);
+#ifdef __cplusplus
+}
+#endif
 
 // Should the electronics be displayed in console
 #define bDisplayOutput 1
