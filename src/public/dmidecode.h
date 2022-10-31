@@ -23,6 +23,14 @@
 
 #include "types.h"
 
+ /*
+  *******************************************************************
+  *                                                                 *
+  *                  Electronics Categories                         *
+  *                                                                 *
+  *******************************************************************
+  */
+
 struct motherboard_components
 {
 	char* baseboard;
@@ -105,10 +113,9 @@ struct bios_information
 	char* vendor;
 	char* version;
 	char* biosreleasedate;
-	char* bioscharacteristics;
+	char bioscharacteristics[9999];
 	char* biosromsize;
 };
-
 struct bios_information extern biosinformation;
 
 enum bios_reader_information_classification
@@ -127,6 +134,40 @@ enum bios_reader_information_classification
 	ps_heaver, // cooling system for CPU area
 	ps_processor
 };
+
+////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+ ***************************************************************************************************
+ *
+ * The chief API function or routine which can/should be called from outside the library for
+ * performing queries about the electronics.
+ *
+ * Things to note:
+ * 1. Each query shall iterate over all the electronics items. Should change as we fit the library
+ *    with Karma!
+ *
+ * @param informationCategory                        The category of electronics being queried
+ * @return void *                                    Pointer to the relevant struct category
+ *
+ ***************************************************************************************************
+ */
+
+void* electronics_spit(enum bios_reader_information_classification informationCategory);
+
+/*
+ ***************************************************************************************************
+ *
+ * Resets and, thus, frees the char primitive type memory allocations. Should be called when your
+ * Application no longer needs BiosReader's services or is shutting.
+ *
+ ***************************************************************************************************
+ */
+
+void reset_electronics_structures();
+
+// Should the electronics be displayed in console with each query
+#define bDisplayOutput 0
 
 #ifdef BR_WINDOWS_PLATFORM
 
@@ -147,6 +188,11 @@ typedef struct _RawSMBIOSData
 	u32	Length;
 	u8	SMBIOSTableData[];
 } RawSMBIOSData, * PRawSMBIOSData;
+
+int get_windows_platform(void);
+RawSMBIOSData* get_raw_smbios_table(void);
+int count_smbios_structures(const void* buff, u32 len);
+
 #endif // BR_WINDOWS_PLATFORM
 
 struct dmi_header
@@ -168,6 +214,8 @@ enum cpuid_type
 	cpuid_x86_amd,
 };
 
+// Forward declarations
+
 extern enum cpuid_type cpuid_type;
 struct u64;
 
@@ -178,26 +226,15 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 	const char* label, enum cpuid_type sig, const u8* p);
 static int smbios3_decode(u8* buf, const char* devmem, u32 flags);
 static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags);
-void reset_electronics_structures();
 static void ashwamegha_run();
-static void copy_to_structure_char(const char** destinationPointer, const char* sourcePointer);
 
-//#ifdef __cplusplus
-//extern "C" {
-//#endif
-void* electronics_spit(enum bios_reader_information_classification informationCategory);
-//#ifdef __cplusplus
-//}
-//#endif
-
-// Should the electronics be displayed in console
-#define bDisplayOutput 0
-
-#ifdef BR_WINDOWS_PLATFORM
-int get_windows_platform(void);
-RawSMBIOSData* get_raw_smbios_table(void);
-int count_smbios_structures(const void* buff, u32 len);
-#endif
+/////////////////////////////////////////////////////////////////////////////////////////////
+// Helpers!
+////////////////////////////////////////////////////////////////////////////////////////////
+static void copy_to_structure_char(char** destinationPointer, const char* sourcePointer);
+static void generate_multiline_buffer(char* const bufferHandle, char* const lineTextToEmbed, const char junctionCondition);
+static void append_to_structure_char(char** destinationPointer, const char* sourcePointer, const char junctionCondition);
+static void copy_to_already_initialized_structure_char(char** destinationPointer, const char* sourcePointer);
 
 // Metric system for electronicssss
 static const char* memoUnit[8] = {

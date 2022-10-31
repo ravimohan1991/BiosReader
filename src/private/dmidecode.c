@@ -13,6 +13,9 @@
  * For legacy and sanity purposes, I shall keep the original file header template intact here.
  * I am removing the dmidecode's header templates and it should be understood that replacement has taken the place.
  *
+ * Also you may and shall find lot of heuristical "if elseif" statements. Not that I can make better designs, but it
+ * is time, I'd like to think, to actually use them instead of abstracting the abstraction-able works.
+ *
  *      DMI Decode
  *
  *      Copyright (C) 2000-2002 Alan Cox <alan@redhat.com>
@@ -449,7 +452,7 @@ static void dmi_bios_runtime_size(u32 code)
 	pr_attr("Runtime Size", format, code);
 }
 
-static void dmi_bios_rom_size(u8 code1, u16 code2, const char* writeBuffer)
+static void dmi_bios_rom_size(u8 code1, u16 code2, char* const writeBuffer)
 {
 	static const char* unit[4] = {
 		"MB", "GB", out_of_spec, out_of_spec
@@ -476,11 +479,13 @@ static void dmi_bios_rom_size(u8 code1, u16 code2, const char* writeBuffer)
 		sprintf_s(sizeInformation, 8, "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
 	}
 
-	copy_to_structure_char(writeBuffer, sizeInformation);
+	copy_to_structure_char((char**)writeBuffer, sizeInformation);
 }
 
-static void dmi_bios_characteristics(u64 code)
+static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 {
+	char characteristicsPie[9999] = "";
+
 	/* 7.1.1 */
 	static const char* characteristics[] = {
 		"BIOS characteristics not supported", /* 3 */
@@ -516,21 +521,80 @@ static void dmi_bios_characteristics(u64 code)
 	int i;
 
 	/*
-	 * This isn't very clear what this bit is supposed to mean
+	 * This isn't very clear what this QWORD bit is supposed to mean
+	 * Ye, some sort of coverup for the transparency of the electronics or some reservation for convenience or superstition.
+	 * See the table, mentioned in the standard which is mentioned in the link below
+	 * https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
 	 */
 	if (code.l & (1 << 3))
 	{
-		pr_list_item("%s", characteristics[0]);
+		if (bDisplayOutput)
+		{
+			pr_list_item("%s", characteristics[0]);
+		}
+		// May need tweaking
+		sprintf_s(characteristicsPie, 100, "%s", characteristics[0]);
+		copy_to_already_initialized_structure_char((char**)writebuffer, characteristicsPie);
 		return;
 	}
 
 	for (i = 4; i <= 31; i++)
+	{
 		if (code.l & (1 << i))
-			pr_list_item("%s", characteristics[i - 3]);
+		{
+			if (bDisplayOutput)
+			{
+				pr_list_item("%s", characteristics[i - 3]);
+			}
+
+			generate_multiline_buffer(characteristicsPie, characteristics[i - 3], '\n');
+		}
+	}
+	copy_to_already_initialized_structure_char((char**)writebuffer, characteristicsPie);
 }
 
-static void dmi_bios_characteristics_x1(u8 code)
+/*
+ ***********************************************************************************
+ *
+ * A handy routine to generate multiline buffer. Conceptoal instructions (?).
+ * Well oxymoronic to the name, one can even have single char space, depending upon
+ * taste or need.
+ *
+ * @param bufferHandle                Pointer the buffer holding all the lines
+ * @param lineTextToEmbed             Pointer to the new line to be fed
+ * @param junctionCondition           '\n' for new line or ' ' for single space
+ *
+ ***********************************************************************************
+ */
+
+static void generate_multiline_buffer(char* const bufferHandle, char* const lineTextToEmbed, const char junctionCondition)
 {
+	static char nullChar = '\0';
+	//static char nextLine = '\n';// missing good ol CRLF
+
+	// Note that null character is not counted, hehe.
+	unsigned int sizeOfFilledBuffer = strlen(bufferHandle);
+	unsigned int sizeOfLineEmbedding = strlen(lineTextToEmbed);
+
+	// Alpha for next line of characteristic
+	char* destination = bufferHandle + sizeOfFilledBuffer;
+
+	// Add new line character
+	memcpy(destination++, &junctionCondition, 1);
+
+	// Copy the new line AFTER new line character
+	memcpy(destination, lineTextToEmbed, sizeOfLineEmbedding);
+
+	destination += sizeOfLineEmbedding + 1;
+
+	// Mark the culmination of multiline string
+	memcpy(destination, &nullChar, 1);
+}
+
+static void dmi_bios_characteristics_x1(u8 code, char* const writebuffer)
+{
+	char characteristicsPie[9999] = "";
+
 	/* 7.1.2.1 */
 	static const char* characteristics[] = {
 		"ACPI is supported", /* 0 */
@@ -545,12 +609,24 @@ static void dmi_bios_characteristics_x1(u8 code)
 	int i;
 
 	for (i = 0; i <= 7; i++)
+	{
 		if (code & (1 << i))
-			pr_list_item("%s", characteristics[i]);
+		{
+			if (bDisplayOutput)
+			{
+				pr_list_item("%s", characteristics[i]);
+			}
+			generate_multiline_buffer(characteristicsPie, characteristics[i], '\n');
+		}
+	}
+
+	append_to_structure_char((char**)writebuffer, characteristicsPie, '\n');
 }
 
-static void dmi_bios_characteristics_x2(u8 code)
+static void dmi_bios_characteristics_x2(u8 code, char* const writebuffer)
 {
+	char characteristicsPie[9999] = "";
+
 	/* 37.1.2.2 */
 	static const char* characteristics[] = {
 		"BIOS boot specification is supported", /* 0 */
@@ -564,8 +640,18 @@ static void dmi_bios_characteristics_x2(u8 code)
 	int i;
 
 	for (i = 0; i <= 6; i++)
+	{
 		if (code & (1 << i))
-			pr_list_item("%s", characteristics[i]);
+		{
+			if (bDisplayOutput)
+			{
+				pr_list_item("%s", characteristics[i]);
+			}
+			generate_multiline_buffer(characteristicsPie, characteristics[i], '\n');
+		}
+	}
+
+	append_to_structure_char((char**)writebuffer, characteristicsPie, '\n');
 }
 
 /*
@@ -4407,12 +4493,15 @@ static int bAlreadyRun = 0;
 
 void reset_electronics_structures()
 {
+	bAlreadyRun = 0;
+
 	// Bios information clearence
 	biosinformation.bIsFilled = 0;
 	free(biosinformation.vendor);
 	free(biosinformation.version);
 	free(biosinformation.biosreleasedate);
 	free(biosinformation.biosromsize);
+	//free(biosinformation.bioscharacteristics);
 }
 
 static const char* get_raw_electronics_information()
@@ -4449,7 +4538,7 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 
 /***********************************************************************************************************
  *
- * A free run to fill up all possible electronics structures
+ * A free run to fill up all possible electronics structures to spit when the query is made!!
  *
  **********************************************************************************************************
  */
@@ -4541,7 +4630,6 @@ static void ashwamegha_run()
 
 	// first let me see how many structures
 	u16 structuresNumber = count_smbios_structures(rawInformation, rawInformation->Length);
-	printf("Number of structures found %i \n", structuresNumber);
 
 	u8* data = rawInformation->SMBIOSTableData;
 
@@ -4551,11 +4639,59 @@ static void ashwamegha_run()
 	bAlreadyRun = 1;
 }
 
-static void copy_to_structure_char(const char** destinationPointer, const char* sourcePointer)
+/*************************************************************************************************
+ *
+ * Quite a safe way of copying, since the memory is bound to be allocated already (and auto
+ * clearance later).
+ *
+ * @param destinationPointer      Pointer to the destination char* in appropriate struct category
+ * @param sourcePointer           Pointer to the specific section of DMI data obtained
+ *                                (or some relevant data), which needs be copied
+ *
+ *************************************************************************************************
+ */
+
+static void copy_to_already_initialized_structure_char(char* destinationPointer, const char* sourcePointer)
+{
+	size_t sourceSize = sizeof(char) * strlen(sourcePointer) + 1;
+	strcpy_s(destinationPointer, sourceSize, sourcePointer);
+}
+
+/*************************************************************************************************
+ *
+ * CAUTION: Char primitive allocation routine! In effect copying of a string. Make sure to free
+ * later! For internal purpose only.
+ *
+ * @param destinationPointer      Pointer to the destination char* in appropriate struct category
+ * @param sourcePointer           Pointer to the specific section of DMI data obtained
+ *                                (or some relevant data), which needs be copied
+ *
+ *************************************************************************************************
+ */
+
+static void copy_to_structure_char(char** destinationPointer, const char* sourcePointer)
 {
 	size_t sourceSize = sizeof(char) * strlen(sourcePointer) + 1;
 	*destinationPointer = malloc(sourceSize);
 	strcpy_s(*destinationPointer, sourceSize, sourcePointer);
+}
+
+/*********************************************************************************************************
+ *
+ * CAUTION: Char primitive allocation routine! In effect appending of a string with another.
+ * Make sure to free later! For internal purpose only.
+ *
+ * @param destinationPointer      Pointer to the destination char* buffer in appropriate struct category
+ * @param sourcePointer           Pointer to the specific section of DMI data obtained
+ *                                (or some relevant data), which needs be copied
+ * @param junctionCondition       '\n' for new line or ' ' for single space
+ *
+ *********************************************************************************************************
+ */
+
+static void append_to_structure_char(char* destinationPointer, const char* sourcePointer, const char junctionCondition)
+{
+	generate_multiline_buffer(destinationPointer, sourcePointer, '\n');
 }
 
 /*
@@ -4584,7 +4720,11 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 	{
 	case 0: /* 7.1 BIOS Information */
 
-		pr_handle_name("BIOS Information");
+		if (bDisplayOutput)
+		{
+			pr_handle_name("BIOS Information");
+		}
+
 		if (h->length < 0x12)
 		{
 			break;
@@ -4617,20 +4757,47 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		}
 		dmi_bios_rom_size(data[0x09], h->length < 0x1A ? 16 : WORD(data + 0x18), & biosinformation.biosromsize);
 
-		pr_list_start("Characteristics", NULL);
-		dmi_bios_characteristics(QWORD(data + 0x0A));
-		pr_list_end();
-		if (h->length < 0x13) break;
-		dmi_bios_characteristics_x1(data[0x12]);
-		if (h->length < 0x14) break;
-		dmi_bios_characteristics_x2(data[0x13]);
-		if (h->length < 0x18) break;
-		if (data[0x14] != 0xFF && data[0x15] != 0xFF)
-			pr_attr("BIOS Revision", "%u.%u",
-				data[0x14], data[0x15]);
-		if (data[0x16] != 0xFF && data[0x17] != 0xFF)
-			pr_attr("Firmware Revision", "%u.%u",
-				data[0x16], data[0x17]);
+		if (bDisplayOutput)
+		{
+			pr_list_start("Characteristics", NULL);
+		}
+
+		dmi_bios_characteristics(QWORD(data + 0x0A), &biosinformation.bioscharacteristics);
+
+		if (bDisplayOutput)
+		{
+			pr_list_end();
+		}
+
+		if (h->length < 0x13)
+		{
+			break;
+		}
+
+		dmi_bios_characteristics_x1(data[0x12], &biosinformation.bioscharacteristics);
+
+		if (h->length < 0x14)
+		{
+			break;
+		}
+
+		dmi_bios_characteristics_x2(data[0x13], &biosinformation.bioscharacteristics);
+
+		if (h->length < 0x18)
+		{
+			break;
+		}
+
+		if (data[0x14] != 0xFF && data[0x15] != 0xFF && bDisplayOutput)
+		{
+			pr_attr("BIOS Revision", "%u.%u", data[0x14], data[0x15]);
+		}
+
+		if (data[0x16] != 0xFF && data[0x17] != 0xFF && bDisplayOutput)
+		{
+			pr_attr("Firmware Revision", "%u.%u", data[0x16], data[0x17]);
+		}
+
 		break;
 
 	case 1: /* 7.2 System Information */
@@ -5844,7 +6011,10 @@ static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags)
 		if (binventoryItem)
 		{
 			// Printing the inventory handle
-			pr_handle(&h);
+			if (bDisplayOutput)
+			{
+				pr_handle(&h);
+			}
 			// Handles for various electronics items (in the PC)
 			dmi_decode(&h, ver);
 		}
