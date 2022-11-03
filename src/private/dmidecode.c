@@ -2942,44 +2942,106 @@ static void dmi_memory_device_width(const char* attr, u16 code)
 		pr_attr(attr, "%u bits", code);
 }
 
-static void dmi_memory_device_size(u16 code)
+static void dmi_memory_device_size(u16 code, char* const writebuffer)
 {
+	char characteristicSizePie[14];
+
 	if (code == 0)
-		pr_attr("Size", "No Module Installed");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Size", "No Module Installed");
+		}
+		sprintf_s(characteristicSizePie, 14, "Seems Fake");
+	}
 	else if (code == 0xFFFF)
-		pr_attr("Size", "Unknown");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Size", "Unknown");
+		}
+		sprintf_s(characteristicSizePie, 14, "Size Unknown");
+	}
 	else
 	{
 		u64 s = { .l = code & 0x7FFF };
 		if (!(code & 0x8000))
+		{
 			s.l <<= 10;
-		dmi_print_memory_size("Size", s, 1);
+		}
+		if (bDisplayOutput)
+		{
+			dmi_print_memory_size("Size", s, 1);
+		}
+		sprintf_s(characteristicSizePie, 14, "%u %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
 	}
 }
 
-static void dmi_memory_device_extended_size(u32 code)
+static void dmi_memory_device_extended_size(u32 code, char* const writebuffer)
 {
 	code &= 0x7FFFFFFFUL;
+
+	char characteristicSizePie[14];
 
 	/*
 	 * Use the greatest unit for which the exact value can be displayed
 	 * as an integer without rounding
 	 */
 	if (code & 0x3FFUL)
-		pr_attr("Size", "%lu MB", (unsigned long)code);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Size", "%lu MB", (unsigned long)code);
+		}
+
+		sprintf_s(characteristicSizePie, 14, "%lu MB", (unsigned long)code);
+	}
 	else if (code & 0xFFC00UL)
-		pr_attr("Size", "%lu GB", (unsigned long)code >> 10);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Size", "%lu GB", (unsigned long)code >> 10);
+		}
+		sprintf_s(characteristicSizePie, 14, "%lu MB", (unsigned long)code >> 10);
+	}
 	else
-		pr_attr("Size", "%lu TB", (unsigned long)code >> 20);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Size", "%lu TB", (unsigned long)code >> 20);
+		}
+		sprintf_s(characteristicSizePie, 14, "%lu MB", (unsigned long)code >> 20);
+	}
+
+	copy_to_structure_char((char**)writebuffer, characteristicSizePie);
 }
 
-static void dmi_memory_voltage_value(const char* attr, u16 code)
+static void dmi_memory_voltage_value(const char* attr, u16 code, char* const writebuffer)
 {
+	// Lemme recreate Y2K scenario, khe khe
+	char characteristicVoltage[6];
+
 	if (code == 0)
-		pr_attr(attr, "Unknown");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr(attr, "Unknown");
+		}
+		sprintf_s(characteristicVoltage, 6, "NA");
+	}
 	else
-		pr_attr(attr, code % 100 ? "%g V" : "%.1f V",
-			(float)code / 1000);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr(attr, code % 100 ? "%g V" : "%.1f V", (float)code / 1000);
+		}
+		sprintf_s(characteristicVoltage, 6, code % 100 ? "%g V" : "%.1f V", (float)code / 1000);
+	}
+
+	if (writebuffer != NULL)
+	{
+		copy_to_structure_char(writebuffer, characteristicVoltage);
+	}
 }
 
 static const char* dmi_memory_device_form_factor(u8 code)
@@ -3012,11 +3074,26 @@ static const char* dmi_memory_device_form_factor(u8 code)
 static void dmi_memory_device_set(u8 code)
 {
 	if (code == 0)
-		pr_attr("Set", "None");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Set", "None");
+		}
+	}
 	else if (code == 0xFF)
-		pr_attr("Set", "Unknown");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Set", "Unknown");
+		}
+	}
 	else
-		pr_attr("Set", "%u", code);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Set", "%u", code);
+		}
+	}
 }
 
 static const char* dmi_memory_device_type(u8 code)
@@ -3061,7 +3138,9 @@ static const char* dmi_memory_device_type(u8 code)
 	};
 
 	if (code >= 0x01 && code <= 0x23)
+	{
 		return type[code - 0x01];
+	}
 	return out_of_spec;
 }
 
@@ -3088,36 +3167,75 @@ static void dmi_memory_device_type_detail(u16 code)
 	char list[172];		/* Update length if you touch the array above */
 
 	if ((code & 0xFFFE) == 0)
-		pr_attr("Type Detail", "None");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Type Detail", "None");
+		}
+	}
 	else
 	{
 		int i, off = 0;
 
 		list[0] = '\0';
 		for (i = 1; i <= 15; i++)
+		{
 			if (code & (1 << i))
-				off += sprintf(list + off, off ? " %s" : "%s",
-					detail[i - 1]);
-		pr_attr("Type Detail", list);
+			{
+				off += sprintf_s(list + off, 172, off ? " %s" : "%s", detail[i - 1]);
+			}
+			if (bDisplayOutput)
+			{
+				pr_attr("Type Detail", list);
+			}
+		}
 	}
 }
 
-static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2)
+static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2, char* const writebuffer)
 {
+	char characteristicSpeed[14];
+
 	if (code1 == 0xFFFF)
 	{
 		if (code2 == 0)
-			pr_attr(attr, "Unknown");
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, "Unknown");
+			}
+			sprintf_s(characteristicSpeed, 14, "Speed Unknown");
+		}
 		else
-			pr_attr(attr, "%lu MT/s", code2);
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, "%lu MT/s", code2);
+			}
+			sprintf_s(characteristicSpeed, 14, "%lu MT/s", code2);// Megatransfers per second
+		}
 	}
 	else
 	{
 		if (code1 == 0)
-			pr_attr(attr, "Unknown");
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, "Unknown");
+			}
+			sprintf_s(characteristicSpeed, 14, "Speed Unknown");
+		}
 		else
-			pr_attr(attr, "%u MT/s", code1);
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, "%u MT/s", code1);
+			}
+			sprintf_s(characteristicSpeed, 14, "%u MT/s", code1);
+		}
 	}
+
+	copy_to_structure_char(writebuffer, characteristicSpeed);
 }
 
 static void dmi_memory_technology(u8 code)
@@ -3133,9 +3251,19 @@ static void dmi_memory_technology(u8 code)
 		"Intel Optane DC persistent memory" /* 0x07 */
 	};
 	if (code >= 0x01 && code <= 0x07)
-		pr_attr("Memory Technology", "%s", technology[code - 0x01]);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Memory Technology", "%s", technology[code - 0x01]);
+		}
+	}
 	else
-		pr_attr("Memory Technology", "%s", out_of_spec);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Memory Technology", "%s", out_of_spec);
+		}
+	}
 }
 
 static void dmi_memory_operating_mode_capability(u16 code)
@@ -3151,16 +3279,29 @@ static void dmi_memory_operating_mode_capability(u16 code)
 	char list[99];		/* Update length if you touch the array above */
 
 	if ((code & 0xFFFE) == 0)
-		pr_attr("Memory Operating Mode Capability", "None");
-	else {
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr("Memory Operating Mode Capability", "None");
+		}
+	}
+	else
+	{
 		int i, off = 0;
 
 		list[0] = '\0';
 		for (i = 1; i <= 5; i++)
+		{
 			if (code & (1 << i))
-				off += sprintf(list + off, off ? " %s" : "%s",
-					mode[i - 1]);
-		pr_attr("Memory Operating Mode Capability", list);
+			{
+				off += sprintf(list + off, off ? " %s" : "%s", mode[i - 1]);
+			}
+
+			if (bDisplayOutput)
+			{
+				pr_attr("Memory Operating Mode Capability", list);
+			}
+		}
 	}
 }
 
@@ -4489,7 +4630,42 @@ static void dmi_firmware_components(u8 count, const u8* p)
 
 // Some global variables for BiosReader
 struct bios_information biosinformation;
+static struct random_access_memory* randomaccessmemory;
+struct turing_machine_system_memory turingmachinesystemmemory;
+
 static int bAlreadyRun = 0;
+static unsigned int ramCounter;
+
+/***********************************************************************************************************
+ *
+ * BiosReader's Global Initialization routine
+ *
+ **********************************************************************************************************
+ */
+
+static void global_initialization_of_structs()
+{
+	biosinformation.bIsFilled = 0;
+	biosinformation.vendor = NULL;
+	biosinformation.biosreleasedate = NULL;
+	biosinformation.biosromsize = NULL;
+	biosinformation.version = NULL;
+
+	turingmachinesystemmemory.bIsFilled = 0;
+	turingmachinesystemmemory.mounting_location = NULL;
+	turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 0;
+	turingmachinesystemmemory.total_grand_capacity = NULL;
+
+	randomaccessmemory = NULL;
+	ramCounter = 0;
+}
+
+/***********************************************************************************************************
+ *
+ * BiosReader's Global Reset routine
+ *
+ **********************************************************************************************************
+ */
 
 void reset_electronics_structures()
 {
@@ -4501,7 +4677,95 @@ void reset_electronics_structures()
 	free(biosinformation.version);
 	free(biosinformation.biosreleasedate);
 	free(biosinformation.biosromsize);
-	//free(biosinformation.bioscharacteristics);
+
+	// Ram clearance
+	for (int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
+	{
+		randomaccessmemory[i].bIsFilled = 0;
+
+		if (randomaccessmemory[i].ramsize != NULL)
+		{
+			free(randomaccessmemory[i].ramsize);
+		}
+
+		if (randomaccessmemory[i].formfactor != NULL)
+		{
+			free(randomaccessmemory[i].formfactor);
+		}
+
+		if (randomaccessmemory[i].locator != NULL)
+		{
+			free(randomaccessmemory[i].locator);
+		}
+
+		if (randomaccessmemory[i].banklocator != NULL)
+		{
+			free(randomaccessmemory[i].banklocator);
+		}
+
+		if (randomaccessmemory[i].memoryspeed != NULL)
+		{
+			free(randomaccessmemory[i].memoryspeed);
+		}
+
+		if (randomaccessmemory[i].rank != NULL)
+		{
+			free(randomaccessmemory[i].rank);
+		}
+
+		if (randomaccessmemory[i].assettag != NULL)
+		{
+			free(randomaccessmemory[i].assettag);
+		}
+
+		if (randomaccessmemory[i].configuredmemoryspeed != NULL)
+		{
+			free(randomaccessmemory[i].configuredmemoryspeed);
+		}
+
+		if (randomaccessmemory[i].manufacturer != NULL)
+		{
+			free(randomaccessmemory[i].manufacturer);
+		}
+
+		if (randomaccessmemory[i].operatingvoltage != NULL)
+		{
+			free(randomaccessmemory[i].operatingvoltage);
+		}
+
+		if (randomaccessmemory[i].partnumber != NULL)
+		{
+			free(randomaccessmemory[i].partnumber);
+		}
+
+		if (randomaccessmemory[i].ramtype != NULL)
+		{
+			free(randomaccessmemory[i].ramtype);
+		}
+
+		if (randomaccessmemory[i].serialnumber != NULL)
+		{
+			free(randomaccessmemory[i].serialnumber);
+		}
+	}
+
+	if (randomaccessmemory != NULL)
+	{
+		free(randomaccessmemory);
+	}
+	ramCounter = 0;
+
+	// System memory clearance
+	turingmachinesystemmemory.bIsFilled = 0;
+	turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 0;
+	if (turingmachinesystemmemory.mounting_location != NULL)
+	{
+		free(turingmachinesystemmemory.mounting_location);
+	}
+	if (turingmachinesystemmemory.total_grand_capacity != NULL)
+	{
+		free(turingmachinesystemmemory.total_grand_capacity);
+	}
 }
 
 static const char* get_raw_electronics_information()
@@ -4512,6 +4776,9 @@ static const char* get_raw_electronics_information()
 /****************************************************************************************************************
  *
  * A querying function itself.
+ * Iterates through entire list of electronics reported by BIOS and caches them. Multiple queries should be bit
+ * faster and better this way. The routine ashwamegha_run() is run the first time this routine is called or after
+ * reset_electronics_structures() is called by the application.
  * @param informationCategory                   The category of electronics related information
  * @return void*                                The pointer to the struct corresponding to the query made to
  *                                              Bios Reader (BR)
@@ -4530,6 +4797,11 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 	{
 	case ss_bios:
 		return &biosinformation;
+		break;
+
+	case ps_ram:
+		return &turingmachinesystemmemory;
+		break;
 
 	default:
 		return NULL;
@@ -4545,12 +4817,18 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 
 static void ashwamegha_run()
 {
+	// Global initialization
+	global_initialization_of_structs();
+
 	/* Type of file sizes and offsets.  */
 	off_t fileOffset;
 	size_t fileSize; // Useful file size (the amount of data read)
 
 	//int efi;
 	u8* buffer = NULL;
+
+	// Some handle
+	opt.handle = ~0U;
 
 	// Nun standard C function
 	// Deserves a blog-post!
@@ -4623,7 +4901,6 @@ static void ashwamegha_run()
 #endif // BR_LINUX_PLATFORM
 
 #ifdef BR_WINDOWS_PLATFORM
-	opt.handle = ~0U;
 	PRawSMBIOSData rawInformation = get_raw_smbios_table();
 
 	// Now we shall attempt parsing of the information into Human readable data
@@ -4692,6 +4969,43 @@ static void copy_to_structure_char(char** destinationPointer, const char* source
 static void append_to_structure_char(char* destinationPointer, const char* sourcePointer, const char junctionCondition)
 {
 	generate_multiline_buffer(destinationPointer, sourcePointer, '\n');
+}
+
+static void allocate_and_initialize_memory_structure()
+{
+	if (turingmachinesystemmemory.number_of_ram_or_system_memory_devices > 0)
+	{
+		if (randomaccessmemory == NULL)
+		{
+			randomaccessmemory = malloc(sizeof(struct random_access_memory) * turingmachinesystemmemory.number_of_ram_or_system_memory_devices);
+		}
+		else
+		{
+			printf("BiosReader: trying to over allocate!");
+		}
+	}
+
+	// Initialize individual elements
+	for (int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
+	{
+		randomaccessmemory[i].bIsFilled = 0;
+
+		randomaccessmemory[i].assettag = NULL;
+		randomaccessmemory[i].banklocator = NULL;
+		randomaccessmemory[i].configuredmemoryspeed = NULL;
+		randomaccessmemory[i].formfactor = NULL;
+		randomaccessmemory[i].locator = NULL;
+		randomaccessmemory[i].manufacturer = NULL;
+		randomaccessmemory[i].memoryspeed = NULL;
+		randomaccessmemory[i].operatingvoltage = NULL;
+		randomaccessmemory[i].partnumber = NULL;
+		randomaccessmemory[i].ramsize = NULL;
+		randomaccessmemory[i].ramtype = NULL;
+		randomaccessmemory[i].rank = NULL;
+		randomaccessmemory[i].serialnumber = NULL;
+	}
+
+	ramCounter = 0;
 }
 
 /*
@@ -5134,21 +5448,80 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		break;
 
 	case 16: /* 7.17 Physical Memory Array */
-		pr_handle_name("Physical Memory Array");
-		if (h->length < 0x0F) break;
-		pr_attr("Location", "%s",
-			dmi_memory_array_location(data[0x04]));
-		pr_attr("Use", "%s",
-			dmi_memory_array_use(data[0x05]));
-		pr_attr("Error Correction Type", "%s",
-			dmi_memory_array_ec_type(data[0x06]));
+		// Here we make an attempt to count the number of RAM type electronics
+
+		if (bDisplayOutput)
+		{
+			pr_handle_name("Physical Memory Array");
+		}
+
+		if (h->length < 0x0F)
+		{
+			turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 0;
+			break;
+		}
+
+		const char* cacheUseType = dmi_memory_array_use(data[0x05]);
+
+		// Depending upon the platform or device, the lingo "may" vary.
+		// Seems like ram is referred as System Memory according to the table 7.17.2 Memory Array — Use
+		// https://github.com/ravimohan1991/BiosReader/wiki/Demystifying-the-RAW-BIOS-information
+		const char ramLingo[] = "System Memory";
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Use", "%s", cacheUseType);
+		}
+
+		if (strcmp(cacheUseType, ramLingo) == 0)// You can't be Sirius, hehe
+		{
+			turingmachinesystemmemory.bIsFilled = 1;
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Location", "%s", dmi_memory_array_location(data[0x04]));
+		}
+
+		if (turingmachinesystemmemory.bIsFilled)
+		{
+			copy_to_structure_char(&turingmachinesystemmemory.mounting_location, dmi_memory_array_location(data[0x04]));
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Error Correction Type", "%s", dmi_memory_array_ec_type(data[0x06]));
+		}
+
+		// Reported capacity is quite suspicious and needs further investigations.
 		if (DWORD(data + 0x07) == 0x80000000)
 		{
 			if (h->length < 0x17)
-				pr_attr("Maximum Capacity", "Unknown");
+			{
+				if (bDisplayOutput)
+				{
+					pr_attr("Maximum Capacity", "Unknown");
+				}
+				if (turingmachinesystemmemory.bIsFilled)
+				{
+					copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, "Capacity Unknown");
+				}
+			}
 			else
-				dmi_print_memory_size("Maximum Capacity",
-					QWORD(data + 0x0F), 0);
+			{
+				if (bDisplayOutput)
+				{
+					dmi_print_memory_size("Maximum Capacity", QWORD(data + 0x0F), 0);
+				}
+
+				if (turingmachinesystemmemory.bIsFilled)
+				{
+					char sizeInformation[8];
+					sprintf_s(sizeInformation, 8, "%u %s", dmi_compute_memory_size_numerical_part(QWORD(data + 0x0F)),
+						dmi_compute_memory_size_units_or_dimensions_part(QWORD(data + 0x0F), 0));
+					copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, sizeInformation);
+				}
+			}
 		}
 		else
 		{
@@ -5156,90 +5529,271 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 			capacity.h = 0;
 			capacity.l = DWORD(data + 0x07);
-			dmi_print_memory_size("Maximum Capacity",
-				capacity, 1);
+
+			if (bDisplayOutput)
+			{
+				dmi_print_memory_size("Maximum Capacity", capacity, 1);
+			}
+
+			if (turingmachinesystemmemory.bIsFilled)
+			{
+				char sizeInformation[8];
+				sprintf_s(sizeInformation, 8, "%u %s", dmi_compute_memory_size_numerical_part(capacity),
+					dmi_compute_memory_size_units_or_dimensions_part(capacity, 1));
+				copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, sizeInformation);
+			}
 		}
-		dmi_memory_array_error_handle(WORD(data + 0x0B));
-		pr_attr("Number Of Devices", "%u",
-			WORD(data + 0x0D));
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_array_error_handle(WORD(data + 0x0B));
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Number Of Devices", "%u", WORD(data + 0x0D));
+		}
+
+		if (turingmachinesystemmemory.bIsFilled)
+		{
+			turingmachinesystemmemory.number_of_ram_or_system_memory_devices = WORD(data + 0x0D);
+		}
+
+		// Instantiate the "number" of estimated memory devices. BIOS lies :(
+		allocate_and_initialize_memory_structure();
+
 		break;
 
 	case 17: /* 7.18 Memory Device */
-		pr_handle_name("Memory Device");
-		if (h->length < 0x15) break;
-		pr_attr("Array Handle", "0x%04X",
-			WORD(data + 0x04));
-		dmi_memory_array_error_handle(WORD(data + 0x06));
-		dmi_memory_device_width("Total Width", WORD(data + 0x08));
-		dmi_memory_device_width("Data Width", WORD(data + 0x0A));
-		if (h->length >= 0x20 && WORD(data + 0x0C) == 0x7FFF)
-			dmi_memory_device_extended_size(DWORD(data + 0x1C));
-		else
-			dmi_memory_device_size(WORD(data + 0x0C));
-		pr_attr("Form Factor", "%s",
-			dmi_memory_device_form_factor(data[0x0E]));
-		dmi_memory_device_set(data[0x0F]);
-		pr_attr("Locator", "%s",
-			dmi_string(h, data[0x10]));
-		pr_attr("Bank Locator", "%s",
-			dmi_string(h, data[0x11]));
-		pr_attr("Type", "%s",
-			dmi_memory_device_type(data[0x12]));
-		dmi_memory_device_type_detail(WORD(data + 0x13));
-		if (h->length < 0x17) break;
-		/* If no module is present, the remaining fields are irrelevant */
-		if (WORD(data + 0x0C) == 0)
+
+		if (bDisplayOutput)
+		{
+			pr_handle_name("Memory Device");
+		}
+
+		if (h->length < 0x15)
+		{
 			break;
-		dmi_memory_device_speed("Speed", WORD(data + 0x15),
-			h->length >= 0x5C ?
-			DWORD(data + 0x54) : 0);
-		if (h->length < 0x1B) break;
-		pr_attr("Manufacturer", "%s",
-			dmi_string(h, data[0x17]));
-		pr_attr("Serial Number", "%s",
-			dmi_string(h, data[0x18]));
-		pr_attr("Asset Tag", "%s",
-			dmi_string(h, data[0x19]));
-		pr_attr("Part Number", "%s",
-			dmi_string(h, data[0x1A]));
-		if (h->length < 0x1C) break;
-		if ((data[0x1B] & 0x0F) == 0)
-			pr_attr("Rank", "Unknown");
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Array Handle", "0x%04X", WORD(data + 0x04));
+			dmi_memory_array_error_handle(WORD(data + 0x06));
+			dmi_memory_device_width("Total Width", WORD(data + 0x08));
+			dmi_memory_device_width("Data Width", WORD(data + 0x0A));
+		}
+
+		if (h->length >= 0x20 && WORD(data + 0x0C) == 0x7FFF)
+		{
+			dmi_memory_device_extended_size(DWORD(data + 0x1C), &randomaccessmemory[ramCounter].ramsize);
+		}
 		else
-			pr_attr("Rank", "%u", data[0x1B] & 0x0F);
-		if (h->length < 0x22) break;
-		dmi_memory_device_speed("Configured Memory Speed",
-			WORD(data + 0x20),
-			h->length >= 0x5C ?
-			DWORD(data + 0x58) : 0);
-		if (h->length < 0x28) break;
-		dmi_memory_voltage_value("Minimum Voltage",
-			WORD(data + 0x22));
-		dmi_memory_voltage_value("Maximum Voltage",
-			WORD(data + 0x24));
-		dmi_memory_voltage_value("Configured Voltage",
-			WORD(data + 0x26));
-		if (h->length < 0x34) break;
+		{
+			dmi_memory_device_size(WORD(data + 0x0C), &randomaccessmemory[ramCounter].ramsize);
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Form Factor", "%s", dmi_memory_device_form_factor(data[0x0E]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].formfactor, dmi_memory_device_form_factor(data[0x0E]));
+
+		// Won't be used in Karma. I don't know what this is utilitiwise.
+		dmi_memory_device_set(data[0x0F]);
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Locator", "%s", dmi_string(h, data[0x10]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].locator, dmi_string(h, data[0x10]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Bank Locator", "%s", dmi_string(h, data[0x11]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].banklocator, dmi_string(h, data[0x11]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Type", "%s", dmi_memory_device_type(data[0x12]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].ramtype, dmi_memory_device_type(data[0x12]));
+
+		dmi_memory_device_type_detail(WORD(data + 0x13));
+
+		if (h->length < 0x17)
+		{
+			ramCounter++;
+			break;
+		}
+
+		/* If no module is present, the remaining fields are irrelevant */
+		// We can leverage just that, in the sense, check later fields to
+		// know if module is present or not, if on display. Choice of those later fields would be tricky though.
+		if (WORD(data + 0x0C) == 0)
+		{
+			ramCounter++;
+			break;
+		}
+
+		dmi_memory_device_speed("Speed", WORD(data + 0x15), h->length >= 0x5C ? DWORD(data + 0x54) : 0, &randomaccessmemory[ramCounter].memoryspeed);
+
+		if (h->length < 0x1B)
+		{
+			ramCounter++;
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Manufacturer", "%s", dmi_string(h, data[0x17]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].manufacturer, dmi_string(h, data[0x17]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Serial Number", "%s", dmi_string(h, data[0x18]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].serialnumber, dmi_string(h, data[0x18]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Asset Tag", "%s", dmi_string(h, data[0x19]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].assettag, dmi_string(h, data[0x19]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Part Number", "%s", dmi_string(h, data[0x1A]));
+		}
+
+		copy_to_structure_char(&randomaccessmemory[ramCounter].partnumber, dmi_string(h, data[0x1A]));
+
+		if (h->length < 0x1C)
+		{
+			ramCounter++;
+			break;
+		}
+
+		if ((data[0x1B] & 0x0F) == 0)
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr("Rank", "Unknown");
+			}
+		}
+		else
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr("Rank", "%u", data[0x1B] & 0x0F);
+			}
+		}
+
+		if (h->length < 0x22)
+		{
+			ramCounter++;
+			break;
+		}
+
+		dmi_memory_device_speed("Configured Memory Speed", WORD(data + 0x20), h->length >= 0x5C ? DWORD(data + 0x58) : 0, &randomaccessmemory[ramCounter].configuredmemoryspeed);
+
+		if (h->length < 0x28)
+		{
+			ramCounter++;
+			break;
+		}
+
+		dmi_memory_voltage_value("Minimum Voltage", WORD(data + 0x22), NULL);
+		dmi_memory_voltage_value("Maximum Voltage", WORD(data + 0x24), NULL);
+		dmi_memory_voltage_value("Configured Voltage", WORD(data + 0x26), &randomaccessmemory[ramCounter].operatingvoltage);
+
+		// Seems like for ram this is the bottom line (?)
+		if (h->length < 0x34)
+		{
+			ramCounter++;
+			break;
+		}
+
 		dmi_memory_technology(data[0x28]);
+
 		dmi_memory_operating_mode_capability(WORD(data + 0x29));
-		pr_attr("Firmware Version", "%s",
-			dmi_string(h, data[0x2B]));
-		dmi_memory_manufacturer_id("Module Manufacturer ID",
-			WORD(data + 0x2C));
-		dmi_memory_product_id("Module Product ID",
-			WORD(data + 0x2E));
-		dmi_memory_manufacturer_id("Memory Subsystem Controller Manufacturer ID",
-			WORD(data + 0x30));
-		dmi_memory_product_id("Memory Subsystem Controller Product ID",
-			WORD(data + 0x32));
-		if (h->length < 0x3C) break;
-		dmi_memory_size("Non-Volatile Size", QWORD(data + 0x34));
-		if (h->length < 0x44) break;
-		dmi_memory_size("Volatile Size", QWORD(data + 0x3C));
-		if (h->length < 0x4C) break;
-		dmi_memory_size("Cache Size", QWORD(data + 0x44));
-		if (h->length < 0x54) break;
-		dmi_memory_size("Logical Size", QWORD(data + 0x4C));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Firmware Version", "%s", dmi_string(h, data[0x2B]));
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_manufacturer_id("Module Manufacturer ID", WORD(data + 0x2C));
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_product_id("Module Product ID", WORD(data + 0x2E));
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_manufacturer_id("Memory Subsystem Controller Manufacturer ID", WORD(data + 0x30));
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_product_id("Memory Subsystem Controller Product ID", WORD(data + 0x32));
+		}
+
+		if (h->length < 0x3C)
+		{
+			ramCounter;
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_size("Non-Volatile Size", QWORD(data + 0x34));
+		}
+
+		if (h->length < 0x44)
+		{
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_size("Volatile Size", QWORD(data + 0x3C));
+		}
+
+		if (h->length < 0x4C)
+		{
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_size("Cache Size", QWORD(data + 0x44));
+		}
+
+		if (h->length < 0x54)
+		{
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_memory_size("Logical Size", QWORD(data + 0x4C));
+		}
+
+		ramCounter++;
 		break;
 
 	case 18: /* 7.19 32-bit Memory Error Information */

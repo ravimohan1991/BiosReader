@@ -43,20 +43,52 @@ struct motherboard_components
 	char* cpucache; // multiple slots
 };
 
+struct turing_machine_system_memory
+{
+	int bIsFilled;
+
+	// A number
+	unsigned int number_of_ram_or_system_memory_devices; // Computed near "case 16: /* 7.17 Physical Memory Array */"
+	char* total_grand_capacity;
+	char* mounting_location; // usually some view-able und asthetic place
+};
+struct turing_machine_system_memory extern turingmachinesystemmemory;
+
+// Makes me remind class V, when I first read the word, thought it was Raam
+// https://en.wikipedia.org/wiki/Rama, and in graduate school, I stumbled upon
+// Biblical one https://en.wikipedia.org/wiki/Ram_(biblical_figure).
+// In middle I came across, and recollected later, Ram is a male sheep too!
+// Well what do I know, Ram is a verb too!!
+
+// For an excellent viewpoint about the elements of this structure, I'd refer to
+// definitions and articles https://www.crucial.in/articles/
 struct random_access_memory
 {
-	char* formfactor;
+	int bIsFilled;
+
+	char* formfactor;// https://www.crucial.in/articles/pc-builders/what-is-a-form-factor
+	char* ramsize; // ye, powers of 2 stuff!! 128 MB, 256 MB, 512 MB, und 1 GB, 8 GB, and 16 GB. Well 1 GB is actually 1024 MB, so power of 2 strikes again.
+	char* locator; // String number of the string that identifies the physically - labeled socket or board position where the memory device is located EXAMPLE : “SIMM 3”
 	char* ramtype;
-	char* bank; // what is this and is this really necesary?
+	char* banklocator; // String number of the string that identifies the physically labeled bank where the memory device is located EXAMPLE : “Bank 0” or “A
 	char* manufacturer;
 
 	char* serialnumber;
 	char* partnumber;
-	char* assettag;
+	char* assettag;// Seems abiguous atm
 
+	char* memoryspeed;
 	char* configuredmemoryspeed;
 	char* operatingvoltage;
+
+	// A memory rank is a block or area of data that is created using some, or all, of the memory
+	// chips on a module.A rank is a data block that is 64 bits wide.On systems that support
+	// Error Correction Code(ECC) an additional 8 bits are added, which makes the data block 72 bits wide
+	// Reference: https://www.crucial.in/support/articles-faq-memory/what-is-a-memory-rank#:~:text=A%20memory%20rank%20is%20a,data%20block%2072%20bits%20wide.
+	char* rank;
 };
+struct random_access_memory extern* randomaccessmemory;
+static unsigned int ramCounter;
 
 struct cpu_cache
 {
@@ -132,7 +164,8 @@ enum bios_reader_information_classification
 	ps_motherboard,
 	ps_chassis,  // almost synonymous to cabinet (or Chastity if I may)
 	ps_heaver, // cooling system for CPU area
-	ps_processor
+	ps_processor,
+	ps_ram // memory device
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////
