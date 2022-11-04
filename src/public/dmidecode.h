@@ -156,6 +156,7 @@ enum bios_reader_information_classification
 	pi_manufacturer = 0,
 	pi_onboardinformation, // system boot
 	pi_localization,
+	pi_systemmemory, // collective system memory information
 
 	// Software side
 	ss_bios,
@@ -165,7 +166,7 @@ enum bios_reader_information_classification
 	ps_chassis,  // almost synonymous to cabinet (or Chastity if I may)
 	ps_heaver, // cooling system for CPU area
 	ps_processor,
-	ps_ram // memory device
+	ps_systemmemory // array of memory devices (see turing_machine_system_memory::number_of_ram_or_system_memory_devices)
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -177,8 +178,11 @@ enum bios_reader_information_classification
  * performing queries about the electronics.
  *
  * Things to note:
- * 1. Each query shall iterate over all the electronics items. Should change as we fit the library
- *    with Karma!
+ * 1. First (for instance since application start) query shall iterate over all the electronics
+ *    and cache the information which shall be returned on that specific query.
+ * 2. Subsequent queries shall return the cached information only.
+ * 3. An overall iteration shall be performed only if application restarts or
+ *    reset_electronics_structures() is invoked
  *
  * @param informationCategory                        The category of electronics being queried
  * @return void *                                    Pointer to the relevant struct category
@@ -198,6 +202,17 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
  */
 
 void reset_electronics_structures();
+
+/*
+ ***************************************************************************************************
+ *
+ * Return the random_access_memory struct which can be accessed individually in Application
+ * Could be the offset thing because I couldn't access the array via Application
+ *
+ ***************************************************************************************************
+ */
+
+struct random_access_memory* fetch_access_memory_members(unsigned int counter);
 
 // Should the electronics be displayed in console with each query
 #define bDisplayOutput 0

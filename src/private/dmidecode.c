@@ -2975,6 +2975,8 @@ static void dmi_memory_device_size(u16 code, char* const writebuffer)
 		}
 		sprintf_s(characteristicSizePie, 14, "%u %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
 	}
+
+	copy_to_structure_char((char**)writebuffer, characteristicSizePie);
 }
 
 static void dmi_memory_device_extended_size(u32 code, char* const writebuffer)
@@ -4768,6 +4770,26 @@ void reset_electronics_structures()
 	}
 }
 
+/***************************************************************************************************************************
+ *
+ * A special array-of-structs returning routine!
+ *
+ * @param counter                        The counting number of array element (which is struct) which needs be returned
+ * @return  random_access_memory*        The pointer to the element if found, else NULL
+ *
+ ***************************************************************************************************************************
+ */
+
+struct random_access_memory* fetch_access_memory_members(unsigned int counter)
+{
+	if (counter >= turingmachinesystemmemory.number_of_ram_or_system_memory_devices)
+	{
+		return NULL;
+	}
+
+	return &randomaccessmemory[counter];
+}
+
 static const char* get_raw_electronics_information()
 {
 	return "BLANK";
@@ -4799,9 +4821,12 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 		return &biosinformation;
 		break;
 
-	case ps_ram:
+	case pi_systemmemory:
 		return &turingmachinesystemmemory;
 		break;
+
+	case ps_systemmemory:
+		return &randomaccessmemory;
 
 	default:
 		return NULL;
@@ -4897,7 +4922,7 @@ static void ashwamegha_run()
 
 	default:
 		return NULL;
-	}
+}
 #endif // BR_LINUX_PLATFORM
 
 #ifdef BR_WINDOWS_PLATFORM
@@ -7332,7 +7357,7 @@ memory_scan:
 				goto done;
 			}
 		}
-	}
+}
 #endif
 #endif// BR_LINUX_PLATFORM
 
