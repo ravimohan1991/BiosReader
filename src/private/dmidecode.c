@@ -538,6 +538,8 @@ static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 		return;
 	}
 
+	int firstCounter = 0;
+
 	for (i = 4; i <= 31; i++)
 	{
 		if (code.l & (1 << i))
@@ -547,7 +549,15 @@ static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 				pr_list_item("%s", characteristics[i - 3]);
 			}
 
-			generate_multiline_buffer(characteristicsPie, characteristics[i - 3], '\n');
+			if (firstCounter == 0)
+			{
+				sprintf_s(characteristicsPie, 100, (char* const)characteristics[i - 3]);
+				firstCounter = 1;
+			}
+			else
+			{
+				generate_multiline_buffer(characteristicsPie, (char* const)characteristics[i - 3], '\n');
+			}
 		}
 	}
 	copy_to_already_initialized_structure_char((char**)writebuffer, characteristicsPie);
@@ -608,6 +618,8 @@ static void dmi_bios_characteristics_x1(u8 code, char* const writebuffer)
 	};
 	int i;
 
+	int firstCounter = 0;
+
 	for (i = 0; i <= 7; i++)
 	{
 		if (code & (1 << i))
@@ -616,7 +628,16 @@ static void dmi_bios_characteristics_x1(u8 code, char* const writebuffer)
 			{
 				pr_list_item("%s", characteristics[i]);
 			}
-			generate_multiline_buffer(characteristicsPie, characteristics[i], '\n');
+
+			if (firstCounter == 0)
+			{
+				sprintf_s(characteristicsPie, 100, "%s", characteristics[i]);
+				firstCounter = 1;
+			}
+			else
+			{
+				generate_multiline_buffer(characteristicsPie, (char* const)characteristics[i], '\n');
+			}
 		}
 	}
 
@@ -639,6 +660,8 @@ static void dmi_bios_characteristics_x2(u8 code, char* const writebuffer)
 	};
 	int i;
 
+	int firstCounter = 0;
+
 	for (i = 0; i <= 6; i++)
 	{
 		if (code & (1 << i))
@@ -647,7 +670,16 @@ static void dmi_bios_characteristics_x2(u8 code, char* const writebuffer)
 			{
 				pr_list_item("%s", characteristics[i]);
 			}
-			generate_multiline_buffer(characteristicsPie, characteristics[i], '\n');
+
+			if (firstCounter == 0)
+			{
+				sprintf_s(characteristicsPie, 100, "%s", characteristics[i]);
+				firstCounter = 1;
+			}
+			else
+			{
+				generate_multiline_buffer(characteristicsPie, (char* const)characteristics[i], '\n');
+			}
 		}
 	}
 
@@ -958,7 +990,9 @@ static const char* dmi_processor_type(u8 code)
 	};
 
 	if (code >= 0x01 && code <= 0x06)
+	{
 		return type[code - 0x01];
+	}
 	return out_of_spec;
 }
 
@@ -1342,9 +1376,22 @@ static enum cpuid_type dmi_get_cpuid_type(const struct dmi_header* h)
 	return cpuid_none;
 }
 
+/*
+ *************************************************
+ *
+ * A topic for blog-post. Need to understand
+ * the purpose of Signature and how it is
+ * extracted from the cpu's ID obtained earlier.
+ *
+ ************************************************
+ */
+
+ // Lable is "Signature" if called from dmi_processor_id
 void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...),
 	const char* label, enum cpuid_type sig, const u8* p)
 {
+	char signaturePie[120];
+
 	u32 eax, midr, jep106, soc_revision;
 	u16 dx;
 
@@ -1355,18 +1402,32 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 		/*
 		 * 80386 have a different signature.
 		 */
-		print_cb(label,
-			"Type %u, Family %u, Major Stepping %u, Minor Stepping %u",
-			dx >> 12, (dx >> 8) & 0xF,
+		if (bDisplayOutput)
+		{
+			print_cb(label,
+				"Type %u, Family %u, Major Stepping %u, Minor Stepping %u",
+				dx >> 12, (dx >> 8) & 0xF,
+				(dx >> 4) & 0xF, dx & 0xF);
+		}
+
+		sprintf_s(signaturePie, 120, "Type %u, Family %u, Major Stepping %u, Minor Stepping %u", dx >> 12, (dx >> 8) & 0xF,
 			(dx >> 4) & 0xF, dx & 0xF);
+		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		return;
 
 	case cpuid_80486:
 		dx = WORD(p);
-		print_cb(label,
-			"Type %u, Family %u, Model %u, Stepping %u",
-			(dx >> 12) & 0x3, (dx >> 8) & 0xF,
+
+		if (bDisplayOutput)
+		{
+			print_cb(label,
+				"Type %u, Family %u, Model %u, Stepping %u",
+				(dx >> 12) & 0x3, (dx >> 8) & 0xF,
+				(dx >> 4) & 0xF, dx & 0xF);
+		}
+		sprintf_s(signaturePie, 120, "Type %u, Family %u, Model %u, Stepping %u", (dx >> 12) & 0x3, (dx >> 8) & 0xF,
 			(dx >> 4) & 0xF, dx & 0xF);
+		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		return;
 
 	case cpuid_arm_legacy: /* ARM before SOC ID */
@@ -1378,10 +1439,17 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 		 */
 		if (midr == 0)
 			return;
-		print_cb(label,
-			"Implementor 0x%02x, Variant 0x%x, Architecture %u, Part 0x%03x, Revision %u",
-			midr >> 24, (midr >> 20) & 0xF,
+
+		if (bDisplayOutput)
+		{
+			print_cb(label,
+				"Implementor 0x%02x, Variant 0x%x, Architecture %u, Part 0x%03x, Revision %u",
+				midr >> 24, (midr >> 20) & 0xF,
+				(midr >> 16) & 0xF, (midr >> 4) & 0xFFF, midr & 0xF);
+		}
+		sprintf_s(signaturePie, 120, "Implementor 0x%02x, Variant 0x%x, Architecture %u, Part 0x%03x, Revision %u", midr >> 24, (midr >> 20) & 0xF,
 			(midr >> 16) & 0xF, (midr >> 4) & 0xFFF, midr & 0xF);
+		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		return;
 
 	case cpuid_arm_soc_id: /* ARM with SOC ID */
@@ -1406,9 +1474,16 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 		 *   Bit[31] must be zero
 		 *   Bits[30:0] SoC revision
 		 */
-		pr_attr("Signature",
-			"JEP-106 Bank 0x%02x Manufacturer 0x%02x, SoC ID 0x%04x, SoC Revision 0x%08x",
+		if (bDisplayOutput)
+		{
+			pr_attr("Signature",
+				"JEP-106 Bank 0x%02x Manufacturer 0x%02x, SoC ID 0x%04x, SoC Revision 0x%08x",
+				(jep106 >> 24) & 0x7F, (jep106 >> 16) & 0x7F, jep106 & 0xFFFF, soc_revision);
+		}
+		sprintf_s(signaturePie, 120, "JEP-106 Bank 0x%02x Manufacturer 0x%02x, SoC ID 0x%04x, SoC Revision 0x%08x",
 			(jep106 >> 24) & 0x7F, (jep106 >> 16) & 0x7F, jep106 & 0xFFFF, soc_revision);
+		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
+
 		return;
 
 	case cpuid_x86_intel: /* Intel */
@@ -1419,20 +1494,36 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 		 * explained in table 3-5, but DMI doesn't support this
 		 * yet.
 		 */
-		print_cb(label,
-			"Type %u, Family %u, Model %u, Stepping %u",
-			(eax >> 12) & 0x3,
+		if (bDisplayOutput)
+		{
+			print_cb(label,
+				"Type %u, Family %u, Model %u, Stepping %u",
+				(eax >> 12) & 0x3,
+				((eax >> 20) & 0xFF) + ((eax >> 8) & 0x0F),
+				((eax >> 12) & 0xF0) + ((eax >> 4) & 0x0F),
+				eax & 0xF);
+		}
+		sprintf_s(signaturePie, 120, "Type %u, Family %u, Model %u, Stepping %u", (eax >> 12) & 0x3,
 			((eax >> 20) & 0xFF) + ((eax >> 8) & 0x0F),
 			((eax >> 12) & 0xF0) + ((eax >> 4) & 0x0F),
 			eax & 0xF);
+		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		break;
 
 	case cpuid_x86_amd: /* AMD, publication #25481 revision 2.28 */
 		eax = DWORD(p);
-		print_cb(label, "Family %u, Model %u, Stepping %u",
+		if (bDisplayOutput)
+		{
+			print_cb(label, "Family %u, Model %u, Stepping %u",
+				((eax >> 8) & 0xF) + (((eax >> 8) & 0xF) == 0xF ? (eax >> 20) & 0xFF : 0),
+				((eax >> 4) & 0xF) | (((eax >> 8) & 0xF) == 0xF ? (eax >> 12) & 0xF0 : 0),
+				eax & 0xF);
+		}
+		sprintf_s(signaturePie, 120, "Family %u, Model %u, Stepping %u",
 			((eax >> 8) & 0xF) + (((eax >> 8) & 0xF) == 0xF ? (eax >> 20) & 0xFF : 0),
 			((eax >> 4) & 0xF) | (((eax >> 8) & 0xF) == 0xF ? (eax >> 12) & 0xF0 : 0),
 			eax & 0xF);
+		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		break;
 	default:
 		return;
@@ -1441,40 +1532,43 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 
 static void dmi_processor_id(const struct dmi_header* h)
 {
+	char flagsPie[9999] = "";
+	char processorIDPie[999] = "";
+
 	/* Intel AP-485 revision 36, table 2-4 */
 	static const char* flags[32] = {
-		"FPU (Floating-point unit on-chip)", /* 0 */
-		"VME (Virtual mode extension)",
-		"DE (Debugging extension)",
-		"PSE (Page size extension)",
-		"TSC (Time stamp counter)",
-		"MSR (Model specific registers)",
-		"PAE (Physical address extension)",
-		"MCE (Machine check exception)",
-		"CX8 (CMPXCHG8 instruction supported)",
-		"APIC (On-chip APIC hardware supported)",
-		NULL, /* 10 */
-		"SEP (Fast system call)",
-		"MTRR (Memory type range registers)",
-		"PGE (Page global enable)",
-		"MCA (Machine check architecture)",
-		"CMOV (Conditional move instruction supported)",
-		"PAT (Page attribute table)",
-		"PSE-36 (36-bit page size extension)",
-		"PSN (Processor serial number present and enabled)",
-		"CLFSH (CLFLUSH instruction supported)",
-		NULL, /* 20 */
-		"DS (Debug store)",
-		"ACPI (ACPI supported)",
-		"MMX (MMX technology supported)",
-		"FXSR (FXSAVE and FXSTOR instructions supported)",
-		"SSE (Streaming SIMD extensions)",
-		"SSE2 (Streaming SIMD extensions 2)",
-		"SS (Self-snoop)",
-		"HTT (Multi-threading)",
-		"TM (Thermal monitor supported)",
-		NULL, /* 30 */
-		"PBE (Pending break enabled)" /* 31 */
+			"FPU (Floating-point unit on-chip)", /* 0 */
+			"VME (Virtual mode extension)",
+			"DE (Debugging extension)",
+			"PSE (Page size extension)",
+			"TSC (Time stamp counter)",
+			"MSR (Model specific registers)",
+			"PAE (Physical address extension)",
+			"MCE (Machine check exception)",
+			"CX8 (CMPXCHG8 instruction supported)",
+			"APIC (On-chip APIC hardware supported)",
+			NULL, /* 10 */
+			"SEP (Fast system call)",
+			"MTRR (Memory type range registers)",
+			"PGE (Page global enable)",
+			"MCA (Machine check architecture)",
+			"CMOV (Conditional move instruction supported)",
+			"PAT (Page attribute table)",
+			"PSE-36 (36-bit page size extension)",
+			"PSN (Processor serial number present and enabled)",
+			"CLFSH (CLFLUSH instruction supported)",
+			NULL, /* 20 */
+			"DS (Debug store)",
+			"ACPI (ACPI supported)",
+			"MMX (MMX technology supported)",
+			"FXSR (FXSAVE and FXSTOR instructions supported)",
+			"SSE (Streaming SIMD extensions)",
+			"SSE2 (Streaming SIMD extensions 2)",
+			"SS (Self-snoop)",
+			"HTT (Multi-threading)",
+			"TM (Thermal monitor supported)",
+			NULL, /* 30 */
+			"PBE (Pending break enabled)" /* 31 */
 	};
 	const u8* data = h->data;
 	const u8* p = data + 0x08;
@@ -1484,33 +1578,76 @@ static void dmi_processor_id(const struct dmi_header* h)
 	/*
 	 * This might help learn about new processors supporting the
 	 * CPUID instruction or another form of identification.
+	 * The register itself is subjected as a probe for gauging the
+	 * supported instructions!
+	 * Plese see section 7.5.3 https://www.dmtf.org/sites/default/files/standards/documents/DSP0134_3.6.0.pdf
 	 */
+	if (bDisplayOutput)
+	{
+		pr_attr("ID", "%02X %02X %02X %02X %02X %02X %02X %02X", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+	}
 
-	pr_attr("ID", "%02X %02X %02X %02X %02X %02X %02X %02X",
-		p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+	sprintf_s(processorIDPie, 999, "%02X %02X %02X %02X %02X %02X %02X %02X", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+	copy_to_structure_char(&centralprocessinguint.cpuid, processorIDPie);
 
 	dmi_print_cpuid(pr_attr, "Signature", sig, p);
 
 	if (sig != cpuid_x86_intel && sig != cpuid_x86_amd)
+	{
+		sprintf_s(flagsPie, 9999, "UNKNOWN");
+		copy_to_structure_char(&centralprocessinguint.cpuflags, flagsPie);
 		return;
+	}
 
 	edx = DWORD(p + 4);
 	if ((edx & 0xBFEFFBFF) == 0)
-		pr_list_start("Flags", "None");
+	{
+		if (bDisplayOutput)
+		{
+			pr_list_start("Flags", "None");
+		}
+		sprintf_s(flagsPie, 9999, "None");
+	}
 	else
 	{
 		int i;
 
-		pr_list_start("Flags", NULL);
+		if (bDisplayOutput)
+		{
+			pr_list_start("Flags", NULL);
+		}
+
 		for (i = 0; i <= 31; i++)
+		{
 			if (flags[i] != NULL && edx & (1 << i))
-				pr_list_item("%s", flags[i]);
+			{
+				if (bDisplayOutput)
+				{
+					pr_list_item("%s", flags[i]);
+				}
+				char temponFlag[100];
+				sprintf_s(temponFlag, 100, "%s", flags[i]);
+
+				if (i == 0)
+				{
+					sprintf_s(flagsPie, 100, "%s", flags[i]);
+					//generate_multiline_buffer(flagsPie, (char* const)temponFlag, '\n');
+				}
+				else
+				{
+					generate_multiline_buffer(flagsPie, (char* const)temponFlag, '\n');
+				}
+			}
+		}
 	}
 	pr_list_end();
+	copy_to_structure_char(&centralprocessinguint.cpuflags, flagsPie);
 }
 
 static void dmi_processor_voltage(const char* attr, u8 code)
 {
+	char voltagePie[100];
+
 	/* 7.5.4 */
 	static const char* voltage[] = {
 		"5.0 V", /* 0 */
@@ -1520,9 +1657,21 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 	int i;
 
 	if (code & 0x80)
-		pr_attr(attr, "%.1f V", (float)(code & 0x7f) / 10);
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr(attr, "%.1f V", (float)(code & 0x7f) / 10);
+		}
+		sprintf_s(voltagePie, 100, "%.1f V", (float)(code & 0x7f) / 10);
+	}
 	else if ((code & 0x07) == 0x00)
-		pr_attr(attr, "Unknown");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr(attr, "Unknown");
+		}
+		sprintf_s(voltagePie, 100, "UNKNOWN");
+	}
 	else
 	{
 		char voltage_str[18];
@@ -1539,28 +1688,60 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 			}
 		}
 		if (off)
-			pr_attr(attr, voltage_str);
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, voltage_str);
+			}
+			sprintf_s(voltagePie, 100, voltage_str);
+		}
 	}
+	copy_to_structure_char(&centralprocessinguint.operatingvoltage, voltagePie);
 }
 
-static void dmi_processor_frequency(const char* attr, const u8* p)
+static void dmi_processor_frequency(const char* attr, const u8* p, char* const writebuffer)
 {
+	char frequencyPie[14];
 	u16 code = WORD(p);
 
 	if (code)
 	{
+		sprintf_s(frequencyPie, 14, "%u MHz", code);
 		if (attr)
-			pr_attr(attr, "%u MHz", code);
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, "%u MHz", code);
+			}
+		}
 		else
-			printf("%u MHz\n", code);
+		{
+			if (bDisplayOutput)
+			{
+				printf("%u MHz\n", code);
+			}
+		}
 	}
 	else
 	{
+		sprintf_s(frequencyPie, 14, "Unknown");
 		if (attr)
-			pr_attr(attr, "Unknown");
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr(attr, "Unknown");
+			}
+		}
 		else
-			printf("Unknown\n");
+		{
+			if (bDisplayOutput)
+			{
+				printf("Unknown\n");
+			}
+		}
 	}
+
+	copy_to_structure_char((char**)writebuffer, frequencyPie);
 }
 
 /* code is assumed to be a 3-bit value */
@@ -1670,6 +1851,8 @@ static void dmi_processor_cache(const char* attr, u16 code, const char* level,
 
 static void dmi_processor_characteristics(const char* attr, u16 code)
 {
+	char processorCharactersticsPie[1000] = "";
+
 	/* 7.5.9 */
 	static const char* characteristics[] = {
 		"64-bit capable", /* 2 */
@@ -1683,17 +1866,49 @@ static void dmi_processor_characteristics(const char* attr, u16 code)
 	};
 
 	if ((code & 0x00FC) == 0)
-		pr_attr(attr, "None");
+	{
+		if (bDisplayOutput)
+		{
+			pr_attr(attr, "None");
+		}
+		sprintf_s(processorCharactersticsPie, 1000, "None");
+	}
 	else
 	{
 		int i;
+		int firstCounter = 0;
 
-		pr_list_start(attr, NULL);
+		if (bDisplayOutput)
+		{
+			pr_list_start(attr, NULL);
+		}
+
 		for (i = 2; i <= 9; i++)
+		{
 			if (code & (1 << i))
-				pr_list_item("%s", characteristics[i - 2]);
-		pr_list_end();
+			{
+				if (bDisplayOutput)
+				{
+					pr_list_item("%s", characteristics[i - 2]);
+				}
+				if (firstCounter == 0)
+				{
+					sprintf_s(processorCharactersticsPie, 400, "%s", characteristics[i - 2]);
+					firstCounter = 1;
+				}
+				else
+				{
+					generate_multiline_buffer(processorCharactersticsPie, characteristics[i - 2], '\n');
+				}
+			}
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_list_end();
+		}
 	}
+	copy_to_structure_char(&centralprocessinguint.characterstics, processorCharactersticsPie);
 }
 
 /*
@@ -3185,10 +3400,10 @@ static void dmi_memory_device_type_detail(u16 code)
 			if (code & (1 << i))
 			{
 				off += sprintf_s(list + off, 172, off ? " %s" : "%s", detail[i - 1]);
-			}
-			if (bDisplayOutput)
-			{
-				pr_attr("Type Detail", list);
+				if (bDisplayOutput)
+				{
+					pr_attr("Type Detail", list);
+				}
 			}
 		}
 	}
@@ -4634,6 +4849,7 @@ static void dmi_firmware_components(u8 count, const u8* p)
 struct bios_information biosinformation;
 static struct random_access_memory* randomaccessmemory;
 struct turing_machine_system_memory turingmachinesystemmemory;
+struct central_processing_unit centralprocessinguint;
 
 static int bAlreadyRun = 0;
 static unsigned int ramCounter;
@@ -4658,8 +4874,31 @@ static void global_initialization_of_structs()
 	turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 0;
 	turingmachinesystemmemory.total_grand_capacity = NULL;
 
+	// See allocate_and_initialize_memory_structure() for initialization random_access_memory structs
+
 	randomaccessmemory = NULL;
 	ramCounter = 0;
+
+	centralprocessinguint.bIsFilled = 0;
+	centralprocessinguint.assettag = NULL;
+	centralprocessinguint.corescount = NULL;
+	centralprocessinguint.cpuflags = NULL;
+	centralprocessinguint.cpuid = NULL;
+	centralprocessinguint.cputype = NULL;
+	centralprocessinguint.currentspeed = NULL;
+	centralprocessinguint.designation = NULL;
+	centralprocessinguint.enabledcorescount = NULL;
+	centralprocessinguint.externalclock = NULL;
+	centralprocessinguint.manufacturer = NULL;
+	centralprocessinguint.maximumspeed = NULL;
+	centralprocessinguint.operatingvoltage = NULL;
+	centralprocessinguint.partnumber = NULL;
+	centralprocessinguint.processingfamily = NULL;
+	centralprocessinguint.characterstics = NULL;
+	centralprocessinguint.serialnumber = NULL;
+	centralprocessinguint.signature = NULL;
+	centralprocessinguint.threadcount = NULL;
+	centralprocessinguint.version = NULL;
 }
 
 /***********************************************************************************************************
@@ -4760,13 +4999,113 @@ void reset_electronics_structures()
 	// System memory clearance
 	turingmachinesystemmemory.bIsFilled = 0;
 	turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 0;
+
 	if (turingmachinesystemmemory.mounting_location != NULL)
 	{
 		free(turingmachinesystemmemory.mounting_location);
 	}
+
 	if (turingmachinesystemmemory.total_grand_capacity != NULL)
 	{
 		free(turingmachinesystemmemory.total_grand_capacity);
+	}
+
+	// Processor clearance
+	centralprocessinguint.bIsFilled = 0;
+
+	if (centralprocessinguint.assettag != NULL)
+	{
+		free(centralprocessinguint.assettag);
+	}
+
+	if (centralprocessinguint.corescount != NULL)
+	{
+		free(centralprocessinguint.corescount);
+	}
+
+	if (centralprocessinguint.cpuflags != NULL)
+	{
+		free(centralprocessinguint.cpuflags);
+	}
+
+	if (centralprocessinguint.cpuid != NULL)
+	{
+		free(centralprocessinguint.cpuid);
+	}
+
+	if (centralprocessinguint.cputype != NULL)
+	{
+		free(centralprocessinguint.cputype);
+	}
+
+	if (centralprocessinguint.currentspeed != NULL)
+	{
+		free(centralprocessinguint.currentspeed);
+	}
+
+	if (centralprocessinguint.designation != NULL)
+	{
+		free(centralprocessinguint.designation);
+	}
+
+	if (centralprocessinguint.enabledcorescount != NULL)
+	{
+		free(centralprocessinguint.enabledcorescount);
+	}
+
+	if (centralprocessinguint.externalclock != NULL)
+	{
+		free(centralprocessinguint.externalclock);
+	}
+
+	if (centralprocessinguint.manufacturer != NULL)
+	{
+		free(centralprocessinguint.manufacturer);
+	}
+
+	if (centralprocessinguint.maximumspeed != NULL)
+	{
+		free(centralprocessinguint.maximumspeed);
+	}
+
+	if (centralprocessinguint.operatingvoltage != NULL)
+	{
+		free(centralprocessinguint.operatingvoltage);
+	}
+
+	if (centralprocessinguint.partnumber != NULL)
+	{
+		free(centralprocessinguint.partnumber);
+	}
+
+	if (centralprocessinguint.processingfamily != NULL)
+	{
+		free(centralprocessinguint.processingfamily);
+	}
+
+	if (centralprocessinguint.characterstics != NULL)
+	{
+		free(centralprocessinguint.characterstics);
+	}
+
+	if (centralprocessinguint.serialnumber != NULL)
+	{
+		free(centralprocessinguint.serialnumber);
+	}
+
+	if (centralprocessinguint.signature != NULL)
+	{
+		free(centralprocessinguint.signature);
+	}
+
+	if (centralprocessinguint.threadcount != NULL)
+	{
+		free(centralprocessinguint.threadcount);
+	}
+
+	if (centralprocessinguint.version != NULL)
+	{
+		free(centralprocessinguint.version);
 	}
 }
 
@@ -4827,6 +5166,9 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 
 	case ps_systemmemory:
 		return &randomaccessmemory;
+
+	case ps_processor:
+		return &centralprocessinguint;
 
 	default:
 		return NULL;
@@ -4922,7 +5264,7 @@ static void ashwamegha_run()
 
 	default:
 		return NULL;
-}
+	}
 #endif // BR_LINUX_PLATFORM
 
 #ifdef BR_WINDOWS_PLATFORM
@@ -5228,59 +5570,166 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		break;
 
 	case 4: /* 7.5 Processor Information */
-		pr_handle_name("Processor Information");
-		if (h->length < 0x1A) break;
-		pr_attr("Socket Designation", "%s",
-			dmi_string(h, data[0x04]));
-		pr_attr("Type", "%s",
-			dmi_processor_type(data[0x05]));
-		pr_attr("Family", "%s",
-			dmi_processor_family(h, ver));
-		pr_attr("Manufacturer", "%s",
-			dmi_string(h, data[0x07]));
+
+		if (bDisplayOutput)
+		{
+			pr_handle_name("Processor Information");
+		}
+
+		if (h->length < 0x1A)
+		{
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Socket Designation", "%s", dmi_string(h, data[0x04]));
+		}
+
+		copy_to_structure_char(&centralprocessinguint.designation, dmi_string(h, data[0x04]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Type", "%s", dmi_processor_type(data[0x05]));
+		}
+
+		copy_to_structure_char(&centralprocessinguint.cputype, dmi_processor_type(data[0x05]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Family", "%s", dmi_processor_family(h, ver));
+		}
+
+		copy_to_structure_char(&centralprocessinguint.processingfamily, dmi_processor_family(h, ver));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Manufacturer", "%s", dmi_string(h, data[0x07]));
+		}
+
+		copy_to_structure_char(&centralprocessinguint.manufacturer, dmi_string(h, data[0x07]));
+
+		// Flags
 		dmi_processor_id(h);
-		pr_attr("Version", "%s",
-			dmi_string(h, data[0x10]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Version", "%s", dmi_string(h, data[0x10]));
+		}
+
+		copy_to_structure_char(&centralprocessinguint.version, dmi_string(h, data[0x10]));
+
 		dmi_processor_voltage("Voltage", data[0x11]);
-		dmi_processor_frequency("External Clock", data + 0x12);
-		dmi_processor_frequency("Max Speed", data + 0x14);
-		dmi_processor_frequency("Current Speed", data + 0x16);
+
+		dmi_processor_frequency("External Clock", data + 0x12, &centralprocessinguint.externalclock);
+
+		dmi_processor_frequency("Max Speed", data + 0x14, &centralprocessinguint.maximumspeed);
+
+		dmi_processor_frequency("Current Speed", data + 0x16, &centralprocessinguint.currentspeed);
+
+		// Nah doesn't seem interesting
 		if (data[0x18] & (1 << 6))
-			pr_attr("Status", "Populated, %s",
-				dmi_processor_status(data[0x18] & 0x07));
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr("Status", "Populated, %s", dmi_processor_status(data[0x18] & 0x07));
+			}
+		}
 		else
-			pr_attr("Status", "Unpopulated");
-		pr_attr("Upgrade", "%s",
-			dmi_processor_upgrade(data[0x19]));
-		if (h->length < 0x20) break;
-		dmi_processor_cache("L1 Cache Handle",
-			WORD(data + 0x1A), "L1", ver);
-		dmi_processor_cache("L2 Cache Handle",
-			WORD(data + 0x1C), "L2", ver);
-		dmi_processor_cache("L3 Cache Handle",
-			WORD(data + 0x1E), "L3", ver);
-		if (h->length < 0x23) break;
-		pr_attr("Serial Number", "%s",
-			dmi_string(h, data[0x20]));
-		pr_attr("Asset Tag", "%s",
-			dmi_string(h, data[0x21]));
-		pr_attr("Part Number", "%s",
-			dmi_string(h, data[0x22]));
-		if (h->length < 0x28) break;
+		{
+			if (bDisplayOutput)
+			{
+				pr_attr("Status", "Unpopulated");
+			}
+		}
+
+		// Again no clue
+		if (bDisplayOutput)
+		{
+			pr_attr("Upgrade", "%s", dmi_processor_upgrade(data[0x19]));
+		}
+
+		centralprocessinguint.bIsFilled = 0;
+
+		if (h->length < 0x20)
+		{
+			char unknownString[36] = "UnKnowable in this Machine";
+
+			// Fill rest fields with unknown
+			copy_to_structure_char(&centralprocessinguint.serialnumber, unknownString);
+			copy_to_structure_char(&centralprocessinguint.assettag, unknownString);
+			copy_to_structure_char(&centralprocessinguint.partnumber, unknownString);
+			copy_to_structure_char(&centralprocessinguint.corescount, unknownString);
+			copy_to_structure_char(&centralprocessinguint.enabledcorescount, unknownString);
+			copy_to_structure_char(&centralprocessinguint.threadcount, unknownString);
+			copy_to_structure_char(&centralprocessinguint.characterstics, unknownString);
+
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			dmi_processor_cache("L1 Cache Handle", WORD(data + 0x1A), "L1", ver);
+			dmi_processor_cache("L2 Cache Handle", WORD(data + 0x1C), "L2", ver);
+			dmi_processor_cache("L3 Cache Handle", WORD(data + 0x1E), "L3", ver);
+		}
+
+		if (h->length < 0x23)
+		{
+			break;
+		}
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Serial Number", "%s", dmi_string(h, data[0x20]));
+			pr_attr("Asset Tag", "%s", dmi_string(h, data[0x21]));
+			pr_attr("Part Number", "%s", dmi_string(h, data[0x22]));
+		}
+
+		copy_to_structure_char(&centralprocessinguint.serialnumber, dmi_string(h, data[0x20]));
+		copy_to_structure_char(&centralprocessinguint.assettag, dmi_string(h, data[0x21]));
+		copy_to_structure_char(&centralprocessinguint.partnumber, dmi_string(h, data[0x22]));
+
+		if (h->length < 0x28)
+		{
+			break;
+		}
+
 		if (data[0x23] != 0)
-			pr_attr("Core Count", "%u",
-				h->length >= 0x2C && data[0x23] == 0xFF ?
-				WORD(data + 0x2A) : data[0x23]);
+		{
+			char coreCountPie[10];
+			if (bDisplayOutput)
+			{
+				pr_attr("Core Count", "%u", h->length >= 0x2C && data[0x23] == 0xFF ? WORD(data + 0x2A) : data[0x23]);
+			}
+			sprintf_s(coreCountPie, 10, "%u", h->length >= 0x2C && data[0x23] == 0xFF ? WORD(data + 0x2A) : data[0x23]);
+			copy_to_structure_char(&centralprocessinguint.corescount, coreCountPie);
+		}
+
 		if (data[0x24] != 0)
-			pr_attr("Core Enabled", "%u",
-				h->length >= 0x2E && data[0x24] == 0xFF ?
-				WORD(data + 0x2C) : data[0x24]);
+		{
+			char coresEnabledCountPie[10];
+			if (bDisplayOutput)
+			{
+				pr_attr("Cores Enabled", "%u", h->length >= 0x2E && data[0x24] == 0xFF ? WORD(data + 0x2C) : data[0x24]);
+			}
+			sprintf_s(coresEnabledCountPie, 10, "%u", h->length >= 0x2E && data[0x24] == 0xFF ? WORD(data + 0x2C) : data[0x24]);
+			copy_to_structure_char(&centralprocessinguint.enabledcorescount, coresEnabledCountPie);
+		}
+
 		if (data[0x25] != 0)
-			pr_attr("Thread Count", "%u",
-				h->length >= 0x30 && data[0x25] == 0xFF ?
-				WORD(data + 0x2E) : data[0x25]);
-		dmi_processor_characteristics("Characteristics",
-			WORD(data + 0x26));
+		{
+			char threadsCountPie[10];
+			if (bDisplayOutput)
+			{
+				pr_attr("Thread Count", "%u", h->length >= 0x30 && data[0x25] == 0xFF ? WORD(data + 0x2E) : data[0x25]);
+			}
+			sprintf_s(threadsCountPie, 10, "%u", h->length >= 0x30 && data[0x25] == 0xFF ? WORD(data + 0x2E) : data[0x25]);
+			copy_to_structure_char(&centralprocessinguint.threadcount, threadsCountPie);
+		}
+
+		dmi_processor_characteristics("Characteristics", WORD(data + 0x26));
+
 		break;
 
 	case 5: /* 7.6 Memory Controller Information */
@@ -6431,6 +6880,7 @@ static void to_dmi_header(struct dmi_header* h, u8* data)
 	h->data = data; // Entirety
 }
 
+// No clue about the utility of this crap
 static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver)
 {
 	int key;
@@ -6475,7 +6925,7 @@ static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver
 		printf("%s\n", dmi_processor_family(h, ver));
 		break;
 	case 0x416:
-		dmi_processor_frequency(NULL, data + offset);
+		dmi_processor_frequency(NULL, data + offset, NULL);
 		break;
 	default:
 		printf("%s\n", dmi_string(h, data[offset]));
@@ -7357,7 +7807,7 @@ memory_scan:
 				goto done;
 			}
 		}
-}
+	}
 #endif
 #endif// BR_LINUX_PLATFORM
 

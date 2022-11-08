@@ -115,17 +115,23 @@ struct mb_language_modules
 	char* supportedlanguagemodules;
 };
 
+// Assuming 1 cpu only
 struct central_processing_unit
 {
+	int bIsFilled;
+
+	// SMBIOS is ambiguous about the designation, for instance printing U3E1 for FCLGA1151 socket
+	// similar issue has been reported (followed by heavy criticism, if I may sao so)
+	// Verdict: I shall drop the notion of socket display until SMBIOS comes up with, well, proper standard!
 	char* designation;
+	char* cputype; // In order to distinguish from GPU processor :) or DSP https://en.wikipedia.org/wiki/Digital_signal_processor
 	char* processingfamily;
 	char* manufacturer;
-	char* cpuid; // in the context of motherboard components
-	char* signature;
 	char* cpuflags;
-	char* completeprocessingunitidentifier;
+	char* version; // Kind of the most important element of this struct. eg Intel(R) Core(TM) i5-7400 CPU @ 3.00GHz (completeprocessingunitidentifier)
 	char* operatingvoltage;
-	char* externalclock;
+
+	char* externalclock;// For communicating with rest of the MotherBoard devices. Topic for blog-post https://electronics.stackexchange.com/questions/176466/how-do-devices-with-different-external-clock-communicate-between-each-other-on-a
 	char* maximumspeed;
 	char* currentspeed;
 
@@ -133,10 +139,17 @@ struct central_processing_unit
 	char* partnumber;
 	char* assettag;
 
-	char* corecount;
+	char* corescount;
+	char* enabledcorescount;
 	char* threadcount;
-	char* restofthecharacterstics;
+	char* characterstics;
+
+	// The Cpu ID field contains processor - specific information that describes the processor’s features.
+	// For instance E9 06 09 00 FF FB EB BF (something to be computed by cpu registers and stuff)
+	char* cpuid;
+	char* signature; //
 };
+struct central_processing_unit extern centralprocessinguint; // I know it should be unit, can't resist the temptation, besides uint means unsigned so...
 
 struct bios_information
 {
@@ -215,7 +228,7 @@ void reset_electronics_structures();
 struct random_access_memory* fetch_access_memory_members(unsigned int counter);
 
 // Should the electronics be displayed in console with each query
-#define bDisplayOutput 0
+#define bDisplayOutput 1
 
 #ifdef BR_WINDOWS_PLATFORM
 
