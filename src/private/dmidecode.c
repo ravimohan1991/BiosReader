@@ -505,17 +505,17 @@ static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 		"BIOS ROM is socketed",
 		"Boot from PC Card (PCMCIA) is supported",
 		"EDD is supported",
-		"Japanese floppy for NEC 9800 1.2 MB is supported (int 13h)",
-		"Japanese floppy for Toshiba 1.2 MB is supported (int 13h)",
-		"5.25\"/360 kB floppy services are supported (int 13h)",
-		"5.25\"/1.2 MB floppy services are supported (int 13h)",
-		"3.5\"/720 kB floppy services are supported (int 13h)",
-		"3.5\"/2.88 MB floppy services are supported (int 13h)",
-		"Print screen service is supported (int 5h)",
-		"8042 keyboard services are supported (int 9h)",
-		"Serial services are supported (int 14h)",
-		"Printer services are supported (int 17h)",
-		"CGA/mono video services are supported (int 10h)",
+		"Japanese floppy for NEC 9800 1.2 MB is supported",
+		"Japanese floppy for Toshiba 1.2 MB is supported",
+		"5.25\"/360 kB floppy services are supported",
+		"5.25\"/1.2 MB floppy services are supported",
+		"3.5\"/720 kB floppy services are supported",
+		"3.5\"/2.88 MB floppy services are supported",
+		"Print screen service is supported",
+		"8042 keyboard services are supported",
+		"Serial services are supported",
+		"Printer services are supported",
+		"CGA/mono video services are supported",
 		"NEC PC-98" /* 31 */
 	};
 	int i;
@@ -564,17 +564,17 @@ static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 }
 
 /*
- ***********************************************************************************
+ *****************************************************************************************************************
  *
  * A handy routine to generate multiline buffer. Conceptoal instructions (?).
  * Well oxymoronic to the name, one can even have single char space, depending upon
  * taste or need.
  *
- * @param bufferHandle                Pointer the buffer holding all the lines
+ * @param bufferHandle                Pointer the buffer holding all the lines (with enough capacity assumed)
  * @param lineTextToEmbed             Pointer to the new line to be fed
  * @param junctionCondition           '\n' for new line or ' ' for single space
  *
- ***********************************************************************************
+ ****************************************************************************************************************
  */
 
 static void generate_multiline_buffer(char* const bufferHandle, char* const lineTextToEmbed, const char junctionCondition)
@@ -583,8 +583,8 @@ static void generate_multiline_buffer(char* const bufferHandle, char* const line
 	//static char nextLine = '\n';// missing good ol CRLF
 
 	// Note that null character is not counted, hehe.
-	unsigned int sizeOfFilledBuffer = strlen(bufferHandle);
-	unsigned int sizeOfLineEmbedding = strlen(lineTextToEmbed);
+	size_t sizeOfFilledBuffer = strlen(bufferHandle);
+	size_t sizeOfLineEmbedding = strlen(lineTextToEmbed);
 
 	// Alpha for next line of characteristic
 	char* destination = bufferHandle + sizeOfFilledBuffer;
@@ -595,7 +595,7 @@ static void generate_multiline_buffer(char* const bufferHandle, char* const line
 	// Copy the new line AFTER new line character
 	memcpy(destination, lineTextToEmbed, sizeOfLineEmbedding);
 
-	destination += sizeOfLineEmbedding + 1;
+	destination += sizeOfLineEmbedding;
 
 	// Mark the culmination of multiline string
 	memcpy(destination, &nullChar, 1);
@@ -1682,9 +1682,7 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 			if (code & (1 << i))
 			{
 				/* Insert space if not the first value */
-				off += sprintf(voltage_str + off,
-					off ? " %s" : "%s",
-					voltage[i]);
+				off += sprintf_s(voltage_str + off, 18, off ? " %s" : "%s", voltage[i]);
 			}
 		}
 		if (off)
@@ -1898,7 +1896,7 @@ static void dmi_processor_characteristics(const char* attr, u16 code)
 				}
 				else
 				{
-					generate_multiline_buffer(processorCharactersticsPie, characteristics[i - 2], '\n');
+					generate_multiline_buffer(processorCharactersticsPie, (char* const)characteristics[i - 2], '\n');
 				}
 			}
 		}
@@ -2046,7 +2044,7 @@ static void dmi_memory_module_types(const char* attr, u16 code, int flat)
 			if (code & (1 << i))
 			{
 				/* Insert space if not the first value */
-				off += sprintf(type_str + off,
+				off += sprintf_s(type_str + off, 68,
 					off ? " %s" : "%s",
 					types[i]);
 			}
@@ -2208,7 +2206,7 @@ static void dmi_cache_types(const char* attr, u16 code, int flat)
 			if (code & (1 << i))
 			{
 				/* Insert space if not the first value */
-				off += sprintf(type_str + off,
+				off += sprintf_s(type_str + off, 70,
 					off ? " %s" : "%s",
 					types[i]);
 			}
@@ -2703,7 +2701,7 @@ static void dmi_slot_peers(u8 n, const u8* data)
 
 	for (i = 1; i <= n; i++, data += 5)
 	{
-		sprintf(attr, "Peer Device %hhu", (u8)i);
+		sprintf_s(attr, 16, "Peer Device %hhu", (u8)i);
 		pr_attr(attr, "%04x:%02x:%02x.%x (Width %u)",
 			WORD(data), data[2], data[3] >> 3, data[3] & 0x07,
 			data[4]);
@@ -2850,7 +2848,7 @@ static void dmi_oem_strings(const struct dmi_header* h)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf(attr, "String %hhu", (u8)i);
+		sprintf_s(attr, 11, "String %hhu", (u8)i);
 		pr_attr(attr, "%s", dmi_string(h, i));
 	}
 }
@@ -2868,7 +2866,7 @@ static void dmi_system_configuration_options(const struct dmi_header* h)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf(attr, "Option %hhu", (u8)i);
+		sprintf_s(attr, 11, "Option %hhu", (u8)i);
 		pr_attr(attr, "%s", dmi_string(h, i));
 	}
 }
@@ -2879,12 +2877,29 @@ static void dmi_system_configuration_options(const struct dmi_header* h)
 
 static void dmi_bios_languages(const struct dmi_header* h)
 {
+	char languagePie[11911] = "";
+
 	u8* p = h->data + 4;
 	u8 count = p[0x00];
 	int i;
 
 	for (i = 1; i <= count; i++)
-		pr_list_item("%s", dmi_string(h, i));
+	{
+		if (bDisplayOutput)
+		{
+			pr_list_item("%s", dmi_string(h, i));
+		}
+		if (i == 1)
+		{
+			sprintf_s(languagePie, 100, "%s", dmi_string(h, i));
+		}
+		else
+		{
+			generate_multiline_buffer(languagePie, (char* const)dmi_string(h, i), '\n');
+		}
+	}
+
+	copy_to_structure_char(&mblanguagemodules.supportedlanguagemodules, languagePie);
 }
 
 static const char* dmi_bios_language_format(u8 code)
@@ -3052,10 +3067,10 @@ static void dmi_event_log_descriptors(u8 count, u8 len, const u8* p)
 	{
 		if (len >= 0x02)
 		{
-			sprintf(attr, "Descriptor %d", i + 1);
+			sprintf_s(attr, 16, "Descriptor %d", i + 1);
 			pr_attr(attr, "%s",
 				dmi_event_log_descriptor_type(p[i * len]));
-			sprintf(attr, "Data Format %d", i + 1);
+			sprintf_s(attr, 16, "Data Format %d", i + 1);
 			pr_attr(attr, "%s",
 				dmi_event_log_descriptor_format(p[i * len + 1]));
 		}
@@ -3257,7 +3272,7 @@ static void dmi_memory_voltage_value(const char* attr, u16 code, char* const wri
 
 	if (writebuffer != NULL)
 	{
-		copy_to_structure_char(writebuffer, characteristicVoltage);
+		copy_to_structure_char((char**)writebuffer, characteristicVoltage);
 	}
 }
 
@@ -3452,7 +3467,7 @@ static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2, char
 		}
 	}
 
-	copy_to_structure_char(writebuffer, characteristicSpeed);
+	copy_to_structure_char((char**)writebuffer, characteristicSpeed);
 }
 
 static void dmi_memory_technology(u8 code)
@@ -3511,7 +3526,7 @@ static void dmi_memory_operating_mode_capability(u16 code)
 		{
 			if (code & (1 << i))
 			{
-				off += sprintf(list + off, off ? " %s" : "%s", mode[i - 1]);
+				off += sprintf_s(list + off, 99, off ? " %s" : "%s", mode[i - 1]);
 			}
 
 			if (bDisplayOutput)
@@ -3853,25 +3868,25 @@ static void dmi_power_controls_power_on(const u8* p)
 
 	/* 7.26.1 */
 	if (dmi_bcd_range(p[0], 0x01, 0x12))
-		off += sprintf(time + off, "%02X", p[0]);
+		off += sprintf_s(time + off, 15, "%02X", p[0]);
 	else
-		off += sprintf(time + off, "*");
+		off += sprintf_s(time + off, 15, "*");
 	if (dmi_bcd_range(p[1], 0x01, 0x31))
-		off += sprintf(time + off, "-%02X", p[1]);
+		off += sprintf_s(time + off, 15, "-%02X", p[1]);
 	else
-		off += sprintf(time + off, "-*");
+		off += sprintf_s(time + off, 15, "-*");
 	if (dmi_bcd_range(p[2], 0x00, 0x23))
-		off += sprintf(time + off, " %02X", p[2]);
+		off += sprintf_s(time + off, 15, " %02X", p[2]);
 	else
-		off += sprintf(time + off, " *");
+		off += sprintf_s(time + off, 15, " *");
 	if (dmi_bcd_range(p[3], 0x00, 0x59))
-		off += sprintf(time + off, ":%02X", p[3]);
+		off += sprintf_s(time + off, 15, ":%02X", p[3]);
 	else
-		off += sprintf(time + off, ":*");
+		off += sprintf_s(time + off, 15, ":*");
 	if (dmi_bcd_range(p[4], 0x00, 0x59))
-		off += sprintf(time + off, ":%02X", p[4]);
+		off += sprintf_s(time + off, 15, ":%02X", p[4]);
 	else
-		off += sprintf(time + off, ":*");
+		off += sprintf_s(time + off, 15, ":*");
 
 	pr_attr("Next Scheduled Power-on", time);
 }
@@ -4178,9 +4193,9 @@ static void dmi_memory_channel_devices(u8 count, const u8* p)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf(attr, "Device %hhu Load", (u8)i);
+		sprintf_s(attr, 18, "Device %hhu Load", (u8)i);
 		pr_attr(attr, "%u", p[3 * i]);
-		sprintf(attr, "Device %hhu Handle", (u8)i);
+		sprintf_s(attr, 18, "Device %hhu Handle", (u8)i);
 		pr_attr(attr, "0x%04X", WORD(p + 3 * i + 1));
 	}
 }
@@ -4519,12 +4534,12 @@ static void dmi_parse_protocol_record(u8* rec)
 	if (assign_val == 0x1 || assign_val == 0x3)
 	{
 		/* DSP0270: 8.6: the Host IPv[4|6] Address */
-		sprintf(attr, "%s Address", addrstr);
+		sprintf_s(attr, 38, "%s Address", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[18], buf, addrtype));
 
 		/* DSP0270: 8.6: Prints the Host IPv[4|6] Mask */
-		sprintf(attr, "%s Mask", addrstr);
+		sprintf_s(attr, 38, "%s Mask", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[34], buf, addrtype));
 	}
@@ -4547,13 +4562,13 @@ static void dmi_parse_protocol_record(u8* rec)
 		u32 vlan;
 
 		/* DSP0270: 8.6: Prints the Redfish IPv[4|6] Service Address */
-		sprintf(attr, "%s Redfish Service Address", addrstr);
+		sprintf_s(attr, 38, "%s Redfish Service Address", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[52], buf,
 				addrtype));
 
 		/* DSP0270: 8.6: Prints the Redfish IPv[4|6] Service Mask */
-		sprintf(attr, "%s Redfish Service Mask", addrstr);
+		sprintf_s(attr, 38, "%s Redfish Service Mask", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[68], buf,
 				addrtype));
@@ -4577,7 +4592,7 @@ static void dmi_parse_protocol_record(u8* rec)
 	if (hlen + 91 > rlen)
 	{
 		hname = out_of_spec;
-		hlen = strlen(out_of_spec);
+		hlen = (u8)strlen(out_of_spec);
 	}
 	pr_subattr("Redfish Service Hostname", "%.*s", hlen, hname);
 }
@@ -4847,6 +4862,7 @@ static void dmi_firmware_components(u8 count, const u8* p)
 
 // Some global variables for BiosReader
 struct bios_information biosinformation;
+struct mb_language_modules mblanguagemodules;
 static struct random_access_memory* randomaccessmemory;
 struct turing_machine_system_memory turingmachinesystemmemory;
 struct central_processing_unit centralprocessinguint;
@@ -4868,6 +4884,8 @@ static void global_initialization_of_structs()
 	biosinformation.biosreleasedate = NULL;
 	biosinformation.biosromsize = NULL;
 	biosinformation.version = NULL;
+	mblanguagemodules.currentactivemodule = NULL;
+	mblanguagemodules.supportedlanguagemodules = NULL;
 
 	turingmachinesystemmemory.bIsFilled = 0;
 	turingmachinesystemmemory.mounting_location = NULL;
@@ -4918,9 +4936,17 @@ void reset_electronics_structures()
 	free(biosinformation.version);
 	free(biosinformation.biosreleasedate);
 	free(biosinformation.biosromsize);
+	if (mblanguagemodules.currentactivemodule != NULL)
+	{
+		free(mblanguagemodules.currentactivemodule);
+	}
+	if (mblanguagemodules.supportedlanguagemodules != NULL)
+	{
+		free(mblanguagemodules.supportedlanguagemodules);
+	}
 
 	// Ram clearance
-	for (int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
+	for (unsigned int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
 	{
 		randomaccessmemory[i].bIsFilled = 0;
 
@@ -5170,6 +5196,8 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 	case ps_processor:
 		return &centralprocessinguint;
 
+	case pi_bioslanguages:
+		return &mblanguagemodules;
 	default:
 		return NULL;
 	}
@@ -5186,10 +5214,6 @@ static void ashwamegha_run()
 {
 	// Global initialization
 	global_initialization_of_structs();
-
-	/* Type of file sizes and offsets.  */
-	off_t fileOffset;
-	size_t fileSize; // Useful file size (the amount of data read)
 
 	//int efi;
 	u8* buffer = NULL;
@@ -5209,6 +5233,9 @@ static void ashwamegha_run()
 #endif // BR_LINUX_PLATFORM
 
 #ifdef BR_LINUX_PLATFORM
+	/* Type of file sizes and offsets.  */
+	size_t fileSize; // Useful file size (the amount of data read)
+
 	/* Set default option values */
 	opt.handle = ~0U;
 
@@ -5295,10 +5322,10 @@ static void ashwamegha_run()
  *************************************************************************************************
  */
 
-static void copy_to_already_initialized_structure_char(char* destinationPointer, const char* sourcePointer)
+static void copy_to_already_initialized_structure_char(char** destinationPointer, const char* sourcePointer)
 {
 	size_t sourceSize = sizeof(char) * strlen(sourcePointer) + 1;
-	strcpy_s(destinationPointer, sourceSize, sourcePointer);
+	strcpy_s((char*)destinationPointer, sourceSize, sourcePointer);
 }
 
 /*************************************************************************************************
@@ -5333,9 +5360,9 @@ static void copy_to_structure_char(char** destinationPointer, const char* source
  *********************************************************************************************************
  */
 
-static void append_to_structure_char(char* destinationPointer, const char* sourcePointer, const char junctionCondition)
+static void append_to_structure_char(char** destinationPointer, const char* sourcePointer, const char junctionCondition)
 {
-	generate_multiline_buffer(destinationPointer, sourcePointer, '\n');
+	generate_multiline_buffer((char* const)destinationPointer, (char* const)sourcePointer, '\n');
 }
 
 static void allocate_and_initialize_memory_structure()
@@ -5353,7 +5380,7 @@ static void allocate_and_initialize_memory_structure()
 	}
 
 	// Initialize individual elements
-	for (int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
+	for (unsigned int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
 	{
 		randomaccessmemory[i].bIsFilled = 0;
 
@@ -5436,14 +5463,14 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 				dmi_bios_runtime_size((0x10000 - WORD(data + 0x06)) << 4);
 			}
 		}
-		dmi_bios_rom_size(data[0x09], h->length < 0x1A ? 16 : WORD(data + 0x18), & biosinformation.biosromsize);
+		dmi_bios_rom_size(data[0x09], h->length < 0x1A ? 16 : WORD(data + 0x18), (char* const)&biosinformation.biosromsize);
 
 		if (bDisplayOutput)
 		{
 			pr_list_start("Characteristics", NULL);
 		}
 
-		dmi_bios_characteristics(QWORD(data + 0x0A), &biosinformation.bioscharacteristics);
+		dmi_bios_characteristics(QWORD(data + 0x0A), (char* const)&biosinformation.bioscharacteristics);
 
 		if (bDisplayOutput)
 		{
@@ -5455,14 +5482,14 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			break;
 		}
 
-		dmi_bios_characteristics_x1(data[0x12], &biosinformation.bioscharacteristics);
+		dmi_bios_characteristics_x1(data[0x12], (char* const)&biosinformation.bioscharacteristics);
 
 		if (h->length < 0x14)
 		{
 			break;
 		}
 
-		dmi_bios_characteristics_x2(data[0x13], &biosinformation.bioscharacteristics);
+		dmi_bios_characteristics_x2(data[0x13], (char* const)&biosinformation.bioscharacteristics);
 
 		if (h->length < 0x18)
 		{
@@ -5621,11 +5648,11 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 		dmi_processor_voltage("Voltage", data[0x11]);
 
-		dmi_processor_frequency("External Clock", data + 0x12, &centralprocessinguint.externalclock);
+		dmi_processor_frequency("External Clock", data + 0x12, (char* const)&centralprocessinguint.externalclock);
 
-		dmi_processor_frequency("Max Speed", data + 0x14, &centralprocessinguint.maximumspeed);
+		dmi_processor_frequency("Max Speed", data + 0x14, (char* const)&centralprocessinguint.maximumspeed);
 
-		dmi_processor_frequency("Current Speed", data + 0x16, &centralprocessinguint.currentspeed);
+		dmi_processor_frequency("Current Speed", data + 0x16, (char* const)&centralprocessinguint.currentspeed);
 
 		// Nah doesn't seem interesting
 		if (data[0x18] & (1 << 6))
@@ -5868,18 +5895,43 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		break;
 
 	case 13: /* 7.14 BIOS Language Information */
-		pr_handle_name("BIOS Language Information");
-		if (h->length < 0x16) break;
+		if (bDisplayOutput)
+		{
+			pr_handle_name("BIOS Language Information");
+		}
+
+		char languagePie[11911];// khe khe, I know
+
+		if (h->length < 0x16)
+		{
+			sprintf_s(languagePie, 65, "Unknown");
+			copy_to_structure_char(&mblanguagemodules.currentactivemodule, languagePie);
+			copy_to_structure_char(&mblanguagemodules.supportedlanguagemodules, languagePie);
+			break;
+		}
+
 		if (ver >= 0x0201)
 		{
-			pr_attr("Language Description Format", "%s",
-				dmi_bios_language_format(data[0x05]));
+			if (bDisplayOutput)
+			{
+				pr_attr("Language Description Format", "%s", dmi_bios_language_format(data[0x05]));
+			}
 		}
-		pr_list_start("Installable Languages", "%u", data[0x04]);
+
+		if (bDisplayOutput)
+		{
+			pr_list_start("Installable Languages", "%u", data[0x04]);
+		}
+
 		dmi_bios_languages(h);
 		pr_list_end();
-		pr_attr("Currently Installed Language", "%s",
-			dmi_string(h, data[0x15]));
+
+		if (bDisplayOutput)
+		{
+			pr_attr("Currently Installed Language", "%s", dmi_string(h, data[0x15]));
+		}
+
+		copy_to_structure_char(&mblanguagemodules.currentactivemodule, dmi_string(h, data[0x15]));
 		break;
 
 	case 14: /* 7.15 Group Associations */
@@ -6060,11 +6112,11 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 		if (h->length >= 0x20 && WORD(data + 0x0C) == 0x7FFF)
 		{
-			dmi_memory_device_extended_size(DWORD(data + 0x1C), &randomaccessmemory[ramCounter].ramsize);
+			dmi_memory_device_extended_size(DWORD(data + 0x1C), (char* const)&randomaccessmemory[ramCounter].ramsize);
 		}
 		else
 		{
-			dmi_memory_device_size(WORD(data + 0x0C), &randomaccessmemory[ramCounter].ramsize);
+			dmi_memory_device_size(WORD(data + 0x0C), (char* const)&randomaccessmemory[ramCounter].ramsize);
 		}
 
 		if (bDisplayOutput)
@@ -6115,7 +6167,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			break;
 		}
 
-		dmi_memory_device_speed("Speed", WORD(data + 0x15), h->length >= 0x5C ? DWORD(data + 0x54) : 0, &randomaccessmemory[ramCounter].memoryspeed);
+		dmi_memory_device_speed("Speed", WORD(data + 0x15), h->length >= 0x5C ? DWORD(data + 0x54) : 0, (char* const)&randomaccessmemory[ramCounter].memoryspeed);
 
 		if (h->length < 0x1B)
 		{
@@ -6178,7 +6230,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			break;
 		}
 
-		dmi_memory_device_speed("Configured Memory Speed", WORD(data + 0x20), h->length >= 0x5C ? DWORD(data + 0x58) : 0, &randomaccessmemory[ramCounter].configuredmemoryspeed);
+		dmi_memory_device_speed("Configured Memory Speed", WORD(data + 0x20), h->length >= 0x5C ? DWORD(data + 0x58) : 0, (char* const)&randomaccessmemory[ramCounter].configuredmemoryspeed);
 
 		if (h->length < 0x28)
 		{
@@ -6188,7 +6240,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 		dmi_memory_voltage_value("Minimum Voltage", WORD(data + 0x22), NULL);
 		dmi_memory_voltage_value("Maximum Voltage", WORD(data + 0x24), NULL);
-		dmi_memory_voltage_value("Configured Voltage", WORD(data + 0x26), &randomaccessmemory[ramCounter].operatingvoltage);
+		dmi_memory_voltage_value("Configured Voltage", WORD(data + 0x26), (char* const)&randomaccessmemory[ramCounter].operatingvoltage);
 
 		// Seems like for ram this is the bottom line (?)
 		if (h->length < 0x34)
@@ -7327,7 +7379,7 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 
 	// Not really sure why trimming of upper part is needed when we have elminated that case earlier!?
 	// For version 3, the number of structures are not present in the table :(. So we feed zero
-	dmi_table(((off_t)offset.h << 32) | offset.l, DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
+	dmi_table(((off_t)offset.h << 31) | offset.l, DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
 
 	return 1;
 }
@@ -7523,67 +7575,6 @@ int count_smbios_structures(u8* buff, u32 len)
 }
 
 /*
- * Checks what platform its running.
- * This code doesn't run on windows 9x/Me, only windows NT or newer
- * Well for newer part, we will be doing hit and trials because we
- * don't possess arbitrary magical powers (yet?)
- *
- * return - WIN_UNSUPORTED if its running on windows 9x/Me
- *        - WIN_NT_2K_XP if its running on windows NT 2k or XP
- *        - WIN_2003_VISTA if its running on windows 2003 or Vista
- *        - WIN_10 if it is running on windows 10
- *
- * Remarks:
- * Windows 2003 and Vista blocked access to physical memory and
- * requires the use of GetSystemFirmwareTable API in order to
- * get the SMBIOS table.
- *
- * Windows NT 2k and XP have to map physical memory and search
- * for the SMBIOS table entry point, as its done on the other
- * systems.
- */
-int get_windows_platform()
-{
-	OSVERSIONINFO version;
-	version.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	GetVersionEx(&version);
-
-	switch (version.dwPlatformId)
-	{
-	case VER_PLATFORM_WIN32_NT:
-
-		//printf("Major Version: %i\n", version.dwMajorVersion);
-		//printf("Minor Version: %i\n", version.dwMinorVersion);
-
-		if ((version.dwMajorVersion >= 6) || (version.dwMajorVersion = 5 && version.dwMinorVersion >= 2))
-		{
-			// Hehe, so much specifity
-			if (version.dwMajorVersion == 6 && version.dwMinorVersion == 2)
-			{
-				return WIN_10;
-			}
-
-			// We can differentiate Vista with later versions, later
-			return WIN_2003_VISTA;
-		}
-		else
-		{
-			return WIN_NT_2K_XP;
-		}
-		break;
-
-	case VER_PLATFORM_WIN32_WINDOWS:
-		printf("Windows major version %d", version.dwMajorVersion);
-		break;
-
-	default:
-		printf("Welp not yet!");
-		return WIN_UNSUPORTED;
-		break;
-	}
-}
-
-/*
  * Gets the raw SMBIOS table. This function only works
  * on Windows 2003 and above. Since Windows 2003 SP1
  * Microsoft blocks access to physical memory.
@@ -7621,7 +7612,7 @@ PRawSMBIOSData get_raw_smbios_table(void)
 	void* buf = NULL;
 	u32 size = 0;
 
-	if (1)//get_windows_platform() == WIN_2003_VISTA)
+	if (1)// Maybe add Windows version checker?
 	{
 		size = GetSystemFirmwareTable('RSMB', 0, buf, size);
 		buf = (void*)malloc(size);
@@ -7631,209 +7622,3 @@ PRawSMBIOSData get_raw_smbios_table(void)
 	return buf;
 }
 #endif // BR_WINDOWS_PLATFORM
-
-int main(int argc, char* const argv[])
-{
-	int returnValue = 0;                /* Returned value of this function */
-	int found = 0;
-
-	/* Type of file sizes and offsets.  */
-	off_t fp;
-	size_t size;
-
-	int efi;
-	u8* buf = NULL;
-
-	// Nun standard C function
-	// Deserves a blog-post!
-#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
-	/*
-	 * We don't want stdout and stderr to be mixed up if both are
-	 * redirected to the same file.
-	 */
-	setlinebuf(stdout); // standard output stream
-	setlinebuf(stderr); // standard error output stream
-#endif // BR_LINUX_PLATFORM
-
-	/* Set default option values */
-	//opt.devmem = DEFAULT_MEM_DEV; // for EFI purposes which I don't think I will be going with
-	//opt.flags = 0; // Commandline parameters are compared against which
-	opt.handle = ~0U;
-
-#if defined BR_MAC_PLATFORM
-
-	mac_service_gauger_initialize();
-	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "CFBundleIdentifier", get_mac_service_field_value("AppleARMCPU", "CFBundleIdentifier", StringType));
-	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "IOMatchCategory", get_mac_service_field_value("AppleARMCPU", "IOMatchCategory", StringType));
-	printf("The service %s, with field %s has the value %s. \n", "AppleARMCPU", "IOCPUID", get_mac_service_field_value("AppleARMCPU", "IOCPUID", NumberType));
-	mac_service_gauger_decommision();
-
-#endif // BR_MAC_PLATFORM
-
-#ifdef BR_LINUX_PLATFORM
-	/*
-	 * First try reading from sysfs tables (sysfs is a ram-based filesystem, it provides a means to export kernel data structures,
-	 * their attributes, and the linkages between them to userspace).  The entry point file could
-	 * contain one of several types of entry points, so read enough for
-	 * the largest one, then determine what type it contains.
-	 */
-	size = 0x20;
-	int errorSpit = 0;
-	if ((buf = read_file(0, &size, SYS_ENTRY_FILE, &errorSpit)) != NULL)// Caution, entry file may change based on OS
-	{
-		if (size >= 24 && memcmp(buf, "_SM3_", 5) == 0)
-		{
-			if (smbios3_decode(buf, SYS_TABLE_FILE, FLAG_NO_FILE_OFFSET))
-				found++;
-		}
-		else if (size >= 31 && memcmp(buf, "_SM_", 4) == 0)
-		{
-			if (smbios_decode(buf, SYS_TABLE_FILE, FLAG_NO_FILE_OFFSET))
-				found++;
-		}
-		else if (size >= 15 && memcmp(buf, "_DMI_", 5) == 0)
-		{
-			if (legacy_decode(buf, SYS_TABLE_FILE, FLAG_NO_FILE_OFFSET))
-				found++;
-		}
-
-		if (found)
-		{
-			goto done;
-		}
-		else
-		{
-			printf("Sorry couldn't get the job done.");
-		}
-	}
-	else if (errorSpit == 13 || errorSpit == 35 || errorSpit == 36 || errorSpit == 37 || errorSpit == 38 || errorSpit == 39) // see erno-base.h for linux and unix maybe
-	{
-		printf("Couldn't manipulate the short term privilege.\n");
-		printf("Kindly consult the friendly FOSSer.\n");
-
-		struct stat fileStatistics;
-		int result;
-
-		result = stat(SYS_ENTRY_FILE, &fileStatistics);
-
-		if (result == -1)
-		{
-			printf("There is something terribly wrong with the file %s, Goodbye!\n", SYS_ENTRY_FILE);
-			return 1;
-		}
-
-		printf("The permissions of the file %s are like so %X\n", SYS_ENTRY_FILE, fileStatistics.st_mode);
-	}
-	else
-	{
-		printf("There is something terribly wrong with the file %s, Goodbye!/n", SYS_ENTRY_FILE);
-		return 1;
-	}
-
-	/* Next try EFI (ia64, Intel-based Mac, arm64) */
-	// The EFI (Extensible Firmware Interface) system partition or ESP is a partition on a data storage device
-	// (usually a hard disk drive or solid-state drive) that is used by computers having the Unified Extensible Firmware Interface (UEFI).
-	// When a computer is booted, UEFI firmware loads files stored on the ESP to start installed operating systems and various utilities.
-	efi = address_from_efi(&fp);
-	switch (efi)
-	{
-	case EFI_NOT_FOUND:
-		goto memory_scan;
-	case EFI_NO_SMBIOS:
-		returnValue = 1;
-		goto exit_free;
-	}
-
-	pr_info("Found SMBIOS entry point in EFI, reading table from %s.", opt.devmem);
-
-	if ((buf = mem_chunk(fp, 0x20, opt.devmem)) == NULL)
-	{
-		returnValue = 1;
-		goto exit_free;
-	}
-
-	if (memcmp(buf, "_SM3_", 5) == 0)
-	{
-		if (smbios3_decode(buf, opt.devmem, 0))
-			found++;
-	}
-	else if (memcmp(buf, "_SM_", 4) == 0)
-	{
-		if (smbios_decode(buf, opt.devmem, 0))
-			found++;
-	}
-	goto done;
-
-memory_scan:
-#if defined __i386__ || defined __x86_64__
-	pr_info("Scanning %s for entry point.", opt.devmem);
-
-	/* Fallback to memory scan (x86, x86_64) */
-	if ((buf = mem_chunk(0xF0000, 0x10000, opt.devmem)) == NULL)
-	{
-		returnValue = 1;
-		goto exit_free;
-	}
-
-	/* Look for a 64-bit entry point first */
-	for (fp = 0; fp <= 0xFFE0; fp += 16)
-	{
-		if (memcmp(buf + fp, "_SM3_", 5) == 0)
-		{
-			if (smbios3_decode(buf + fp, opt.devmem, 0))
-			{
-				found++;
-				goto done;
-			}
-		}
-	}
-
-	/* If none found, look for a 32-bit entry point */
-	for (fp = 0; fp <= 0xFFF0; fp += 16)
-	{
-		if (memcmp(buf + fp, "_SM_", 4) == 0 && fp <= 0xFFE0)
-		{
-			if (smbios_decode(buf + fp, opt.devmem, 0))
-			{
-				found++;
-				goto done;
-			}
-		}
-		else if (memcmp(buf + fp, "_DMI_", 5) == 0)
-		{
-			if (legacy_decode(buf + fp, opt.devmem, 0))
-			{
-				found++;
-				goto done;
-			}
-		}
-	}
-#endif
-#endif// BR_LINUX_PLATFORM
-
-#ifdef BR_WINDOWS_PLATFORM
-	PRawSMBIOSData rawInformation = get_raw_smbios_table();
-
-	// Now we shall attempt parsing of the information into Human readable data
-
-	// first let me see how many structures
-	u16 structuresNumber = count_smbios_structures(rawInformation, rawInformation->Length);
-	printf("Number of structures found %i \n", structuresNumber);
-
-	u8* data = rawInformation->SMBIOSTableData;
-
-	dmi_table_decode(data, rawInformation->Length, structuresNumber, 8, 0);
-#endif // BR_WINDOS_PLATFORM
-
-done:
-	if (!found)
-	{
-		pr_comment("No SMBIOS nor DMI entry point found, sorry.");
-	}
-
-	free(buf);
-exit_free:
-	free(opt.type);
-
-	return returnValue;
-}

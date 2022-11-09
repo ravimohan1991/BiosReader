@@ -114,6 +114,7 @@ struct mb_language_modules
 	char* currentactivemodule;
 	char* supportedlanguagemodules;
 };
+struct mb_language_modules extern mblanguagemodules;
 
 // Assuming 1 cpu only
 struct central_processing_unit
@@ -160,6 +161,7 @@ struct bios_information
 	char* biosreleasedate;
 	char bioscharacteristics[9999];
 	char* biosromsize;
+	//struct mb_language_modules knownLanguages;
 };
 struct bios_information extern biosinformation;
 
@@ -170,6 +172,7 @@ enum bios_reader_information_classification
 	pi_onboardinformation, // system boot
 	pi_localization,
 	pi_systemmemory, // collective system memory information
+	pi_bioslanguages,
 
 	// Software side
 	ss_bios,
@@ -228,7 +231,7 @@ void reset_electronics_structures();
 struct random_access_memory* fetch_access_memory_members(unsigned int counter);
 
 // Should the electronics be displayed in console with each query
-#define bDisplayOutput 1
+#define bDisplayOutput 0
 
 #ifdef BR_WINDOWS_PLATFORM
 
