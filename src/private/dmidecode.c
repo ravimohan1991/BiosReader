@@ -4866,6 +4866,7 @@ struct mb_language_modules mblanguagemodules;
 static struct random_access_memory* randomaccessmemory;
 struct turing_machine_system_memory turingmachinesystemmemory;
 struct central_processing_unit centralprocessinguint;
+struct graphics_processing_unit graphicsprocessingunit;
 
 static int bAlreadyRun = 0;
 static unsigned int ramCounter;
@@ -4917,6 +4918,10 @@ static void global_initialization_of_structs()
 	centralprocessinguint.signature = NULL;
 	centralprocessinguint.threadcount = NULL;
 	centralprocessinguint.version = NULL;
+
+	graphicsprocessingunit.bIsFilled = 0;
+	graphicsprocessingunit.vendor = NULL;
+	graphicsprocessingunit.gpuModel = NULL;
 }
 
 /***********************************************************************************************************
@@ -5133,6 +5138,19 @@ void reset_electronics_structures()
 	{
 		free(centralprocessinguint.version);
 	}
+
+	// gpu clearence
+	graphicsprocessingunit.bIsFilled = 0;
+
+	if (graphicsprocessingunit.gpuModel != NULL)
+	{
+		free(graphicsprocessingunit.gpuModel);
+	}
+
+	if (graphicsprocessingunit.vendor != NULL)
+	{
+		free(graphicsprocessingunit.vendor);
+	}
 }
 
 /***************************************************************************************************************************
@@ -5198,6 +5216,9 @@ void* electronics_spit(enum bios_reader_information_classification informationCa
 
 	case pi_bioslanguages:
 		return &mblanguagemodules;
+
+	case ps_graphicscard:
+		return &graphicsprocessingunit;
 	default:
 		return NULL;
 	}
@@ -5416,11 +5437,51 @@ static void allocate_and_initialize_memory_structure()
   *
   ************************************************************************************
   */
-
 static void dmi_decode(const struct dmi_header* h, u16 ver)
 {
 	const u8* data = h->data;
 
+	if (graphicsprocessingunit.bIsFilled == 0)
+	{
+		// With the hope of SMBIOS reading GPU specs one day, sayeth the turtle, I shall
+		// be gald to add yet another clause in the switch. Till then let glad(ness) (the library)
+		// be the vessel for gpu identification, alongwith glfw.
+
+		int resultA = glfwInit();
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+		glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+
+		// It is quite funny that GLFW doesn't support OpenGL context without window. Think Stadia and you may get
+		// the gist.
+		// Anywho, https://www.glfw.org/docs/3.3/context_guide.html#:~:text=GLFW%20doesn't%20support%20creating,with%20the%20GLFW_VISIBLE%20window%20hint.
+		// there is a very hacky way to achieve. Very, because having OpenGL context in BR itself is hacky stuff.
+		glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
+
+		GLFWwindow* br_window_hack = glfwCreateWindow(1, 1, "BR_Hack", NULL, NULL);
+		if (!br_window_hack)
+		{
+			return -1;
+		}
+
+		glfwMakeContextCurrent(br_window_hack);
+
+		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+		{
+			printf("Failed to initialize GLAD");
+			return -1;
+		}
+
+		copy_to_structure_char(&graphicsprocessingunit.vendor, (char*)glGetString(GL_VENDOR));
+		copy_to_structure_char(&graphicsprocessingunit.gpuModel, (char*)glGetString(GL_RENDERER));
+		graphicsprocessingunit.bIsFilled = 1;
+
+		glfwDestroyWindow(br_window_hack);
+		//glfwTerminate(); No need because Karma will take care of that
+	}
 	/*
 	 * Note: DMI types 37 and 42 are untested
 	 */
@@ -7341,7 +7402,7 @@ static void overwrite_smbios3_address(u8* buf)
  *
  *****************************************************************************************************************
  */
-
+#ifdef BR_LINUX_PLATFORM
 static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 {
 	u32 ver;
@@ -7379,10 +7440,11 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 
 	// Not really sure why trimming of upper part is needed when we have elminated that case earlier!?
 	// For version 3, the number of structures are not present in the table :(. So we feed zero
-	dmi_table(((off_t)offset.h << 31) | offset.l, DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
+	dmi_table((off_t)offset.h << 32 | offset.l, DWORD(buf + 0x0C), 0, ver, devmem, flags | FLAG_STOP_AT_EOT);
 
 	return 1;
 }
+#endif // BR_LINUX_PLATFORM
 
 static int smbios_decode(u8* buf, const char* devmem, u32 flags)
 {

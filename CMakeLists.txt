@@ -6,6 +6,8 @@
  ]]
 cmake_minimum_required(VERSION 3.4)
 
+find_package(OpenGL REQUIRED)
+
 # Set the Project name
 set(APPLICATION_NAME "BiosReader")
 
@@ -20,6 +22,9 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated-enum-enum-conversion")
 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Werror-implicit-function-declaration")
 endif()
+
+# Let lseek and mmap support 64-bit wide offsets
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FILE_OFFSET_BITS=64")
 
 # Remember it is SMBIOS data that is stored in LE format
 # Our program however can be facing any of the BE or LE (not sure about middle-endian or mixed-endian) compilation palatform
@@ -71,10 +76,14 @@ elseif(UNIX AND NOT APPLE)
     #target_link_libraries(${APPLICATION_NAME} PUBLIC libcapng)
 endif()
 
+target_link_libraries(${APPLICATION_NAME} PUBLIC ${OPENGL_LIBRARIES})
+target_link_libraries(${APPLICATION_NAME} PUBLIC glfw)
+
 target_include_directories(${APPLICATION_NAME}
     PRIVATE
         # where the library itself will look for its internal headers
         ${CMAKE_CURRENT_SOURCE_DIR}/src/public
+        ${REPOSITORYROOT}/Karma/vendor/GLFW/include
     PUBLIC
         # where top-level project will look for the library's public headers
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/public>

@@ -22,6 +22,8 @@
 #define DMIDECODE_H
 
 #include "types.h"
+#include <glad.h>
+#include "glfw/glfw3.h"
 
  /*
   *******************************************************************
@@ -152,6 +154,17 @@ struct central_processing_unit
 };
 struct central_processing_unit extern centralprocessinguint; // I know it should be unit, can't resist the temptation, besides uint means unsigned so...
 
+// Assuming 1 gpu only
+
+struct graphics_processing_unit
+{
+	int bIsFilled;
+
+	char* vendor;
+	char* gpuModel;
+};
+struct graphics_processing_unit extern graphicsprocessingunit;
+
 struct bios_information
 {
 	int bIsFilled;
@@ -182,7 +195,8 @@ enum bios_reader_information_classification
 	ps_chassis,  // almost synonymous to cabinet (or Chastity if I may)
 	ps_heaver, // cooling system for CPU area
 	ps_processor,
-	ps_systemmemory // array of memory devices (see turing_machine_system_memory::number_of_ram_or_system_memory_devices)
+	ps_systemmemory, // array of memory devices (see turing_machine_system_memory::number_of_ram_or_system_memory_devices)
+	ps_graphicscard
 };
 
 ////////////////////////////////////////////////////////////////////////////////////////////
