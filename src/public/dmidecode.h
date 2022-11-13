@@ -162,6 +162,7 @@ struct graphics_processing_unit
 
 	char* vendor;
 	char* gpuModel;
+	char* grandtotalvideomemory;
 };
 struct graphics_processing_unit extern graphicsprocessingunit;
 
