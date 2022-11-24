@@ -55,12 +55,14 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/prctl.h>
-#include <linux/capability.h>
-
 // Decommisioned part
 // #include <cap-ng.h>
 
+#endif // BR_LINUX_PLATFORM
+
+#ifdef BR_LINUX_PLATFORM
+#include <sys/prctl.h>
+#include <linux/capability.h>
 #endif // BR_LINUX_PLATFORM
 
 #include <string.h>

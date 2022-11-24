@@ -21,9 +21,20 @@
 #ifndef DMIDECODE_H
 #define DMIDECODE_H
 
-#include "types.h"
+#include <types.h>
 #include <glad.h>
-#include "glfw/glfw3.h"
+#include "GLFW/glfw3.h"
+
+#if defined BR_MAC_PLATFORM
+#include <Carbon/Carbon.h>
+#include <IOKit/hid/IOHIDKeys.h> // For HUMAN INTERFACE DEVICES
+#include <IOKit/serial/IOSerialKeys.h>
+#include <MacTypes.h>
+#include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CFNumber.h>
+#include <IOKit/IOReturn.h>
+#include <CoreFoundation/CFUtilities.h>
+#endif
 
  /*
   *******************************************************************
@@ -70,7 +81,7 @@ struct random_access_memory
 
 	char* formfactor;// https://www.crucial.in/articles/pc-builders/what-is-a-form-factor
 	char* ramsize; // ye, powers of 2 stuff!! 128 MB, 256 MB, 512 MB, und 1 GB, 8 GB, and 16 GB. Well 1 GB is actually 1024 MB, so power of 2 strikes again.
-	char* locator; // String number of the string that identifies the physically - labeled socket or board position where the memory device is located EXAMPLE : “SIMM 3”
+	char* locator; // String number of the string that identifies the physically - labeled socket or board position where the memory device is located EXAMPLE : "Bank 0" or "A"
 	char* ramtype;
 	char* banklocator; // String number of the string that identifies the physically labeled bank where the memory device is located EXAMPLE : “Bank 0” or “A
 	char* manufacturer;
@@ -113,6 +124,8 @@ struct mb_management_elements
 
 struct mb_language_modules
 {
+	int bIsFilled;
+
 	char* currentactivemodule;
 	char* supportedlanguagemodules;
 };
@@ -307,9 +320,27 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags);
 static void dmi_table_decode(u8* buf, u32 len, u16 num, u16 ver, u32 flags);
 static void ashwamegha_run();
 
+#ifdef BR_MAC_PLATFORM
+// Type to mean any instance of a property list type;
+// CFString, CFData, CFNumber, CFBoolean, CFDate, CFArray, and CFDictionary.
+// And if that is not enough, we may have to deal with NSString and whatnot
+enum MacPropertyDataTypes
+{
+	NumberType = 0,
+	StringType,
+	BooleanType,
+	DataType,
+	ArrayType,
+	NSStringType
+};
+
+static void mac_device_service_gauger();
+static mach_port_t macPort;
+#endif
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 // Helpers!
-////////////////////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////////////
 static void copy_to_structure_char(char** destinationPointer, const char* sourcePointer);
 static void generate_multiline_buffer(char* const bufferHandle, char* const lineTextToEmbed, const char junctionCondition);
 static void append_to_structure_char(char** destinationPointer, const char* sourcePointer, const char junctionCondition);

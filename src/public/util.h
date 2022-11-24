@@ -31,3 +31,29 @@ void *read_file(off_t base, size_t *len, const char *filename, int* file_access)
 void *mem_chunk(off_t base, size_t len, const char *devmem);
 int write_dump(size_t base, size_t len, const void *data, const char *dumpfile, int add);
 u64 u64_range(u64 start, u64 end);
+
+
+// By the generocity of post https://stackoverflow.com/a/2170743
+
+
+// Define br_safe_sprintf
+#ifdef BR_MAC_PLATFORM
+	#define br_safe_sprintf(str, len, ...) \
+		snprintf(str, len, __VA_ARGS__)
+#endif
+
+#if defined (BR_LINUX_PLATFORM) || defined (BR_WINDOWS_PLATFORM)
+	#define br_safe_sprintf(str, len, ...) \
+		sprintf_s(str, len, __VA_ARGS__)
+#endif
+
+// Define br_safe_strcpy
+#if defined (BR_LINUX_PLATFORM) || defined (BR_WINDOWS_PLATFORM)
+	#define br_safe_strcpy(dest, dest_size, src)\
+		strcpy_s(dest, dest_size, src);
+#endif
+
+#ifdef BR_MAC_PLATFORM
+	#define br_safe_strcpy(dest, dest_size, src)\
+		strlcpy(dest, src, dest_size)
+#endif

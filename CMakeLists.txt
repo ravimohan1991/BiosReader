@@ -54,6 +54,8 @@ elseif(APPLE)
     add_compile_definitions(__USE_GNU)
     find_library(IOKit IOKit)
     find_library(CoreServices CoreServices)
+    enable_language(OBJC)
+    set(CMAKE_C_FLAGS "-x objective-c")
 endif()
 
 # BiosReader's personal code

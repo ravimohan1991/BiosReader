@@ -1,4 +1,4 @@
-﻿/*
+/*
  * BiosReader ® (I couldnt find proper copyleft symbol in ASCII so using my initial in this context)
  * is a heavy modification of the dmidecode software with the purpose of:
  *
@@ -102,16 +102,6 @@
 #include <sys/socket.h>
 #endif
 
-#if defined BR_MAC_PLATFORM
-#include <Carbon/Carbon.h>
-#include <IOKit/hid/IOHIDKeys.h> // For HUMAN INTERFACE DEVICES
-#include <IOKit/serial/IOSerialKeys.h>
-#include <MacTypes.h>
-#include <CoreFoundation/CFBase.h>
-#include "biosreaderformac.h"
-//#include <Foundation/Foundation.h>
-#endif
-
 // Common Libraries again
 // Please keep this order because types.h shall
 // be needing the right macros for the format (BE or LE)
@@ -160,7 +150,7 @@ enum OperatingSystem SubjectOS = Windows;
 #elif BR_LINUX_PLATFORM
 enum OperatingSystem SubjectOS = Linux;
 #elif BR_MAC_PLATFORM
-enum OperatingSystem SubjectOS SubjectOS = MacOS;
+enum OperatingSystem SubjectOS = MacOS;
 #endif
 
 /*
@@ -468,7 +458,7 @@ static void dmi_bios_rom_size(u8 code1, u16 code2, char* const writeBuffer)
 			dmi_print_memory_size("ROM Size", s, 1);
 		}
 		// Here 8 is the size of buffer for safety!!
-		sprintf_s(sizeInformation, 8, "%u %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
+		br_safe_sprintf(sizeInformation, 8, "%lu %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
 	}
 	else
 	{
@@ -476,7 +466,7 @@ static void dmi_bios_rom_size(u8 code1, u16 code2, char* const writeBuffer)
 		{
 			pr_attr("ROM Size", "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
 		}
-		sprintf_s(sizeInformation, 8, "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
+		br_safe_sprintf(sizeInformation, 8, "%u %s", code2 & 0x3FFF, unit[code2 >> 14]);
 	}
 
 	copy_to_structure_char((char**)writeBuffer, sizeInformation);
@@ -533,7 +523,7 @@ static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 			pr_list_item("%s", characteristics[0]);
 		}
 		// May need tweaking
-		sprintf_s(characteristicsPie, 100, "%s", characteristics[0]);
+		br_safe_sprintf(characteristicsPie, 100, "%s", characteristics[0]);
 		copy_to_already_initialized_structure_char((char**)writebuffer, characteristicsPie);
 		return;
 	}
@@ -551,7 +541,7 @@ static void dmi_bios_characteristics(u64 code, char* const writebuffer)
 
 			if (firstCounter == 0)
 			{
-				sprintf_s(characteristicsPie, 100, (char* const)characteristics[i - 3]);
+				br_safe_sprintf(characteristicsPie, 100, "%s", (char* const)characteristics[i - 3]);
 				firstCounter = 1;
 			}
 			else
@@ -631,7 +621,7 @@ static void dmi_bios_characteristics_x1(u8 code, char* const writebuffer)
 
 			if (firstCounter == 0)
 			{
-				sprintf_s(characteristicsPie, 100, "%s", characteristics[i]);
+				br_safe_sprintf(characteristicsPie, 100, "%s", characteristics[i]);
 				firstCounter = 1;
 			}
 			else
@@ -673,7 +663,7 @@ static void dmi_bios_characteristics_x2(u8 code, char* const writebuffer)
 
 			if (firstCounter == 0)
 			{
-				sprintf_s(characteristicsPie, 100, "%s", characteristics[i]);
+				br_safe_sprintf(characteristicsPie, 100, "%s", characteristics[i]);
 				firstCounter = 1;
 			}
 			else
@@ -1410,7 +1400,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 				(dx >> 4) & 0xF, dx & 0xF);
 		}
 
-		sprintf_s(signaturePie, 120, "Type %u, Family %u, Major Stepping %u, Minor Stepping %u", dx >> 12, (dx >> 8) & 0xF,
+		br_safe_sprintf(signaturePie, 120, "Type %u, Family %u, Major Stepping %u, Minor Stepping %u", dx >> 12, (dx >> 8) & 0xF,
 			(dx >> 4) & 0xF, dx & 0xF);
 		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		return;
@@ -1425,7 +1415,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 				(dx >> 12) & 0x3, (dx >> 8) & 0xF,
 				(dx >> 4) & 0xF, dx & 0xF);
 		}
-		sprintf_s(signaturePie, 120, "Type %u, Family %u, Model %u, Stepping %u", (dx >> 12) & 0x3, (dx >> 8) & 0xF,
+		br_safe_sprintf(signaturePie, 120, "Type %u, Family %u, Model %u, Stepping %u", (dx >> 12) & 0x3, (dx >> 8) & 0xF,
 			(dx >> 4) & 0xF, dx & 0xF);
 		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		return;
@@ -1447,7 +1437,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 				midr >> 24, (midr >> 20) & 0xF,
 				(midr >> 16) & 0xF, (midr >> 4) & 0xFFF, midr & 0xF);
 		}
-		sprintf_s(signaturePie, 120, "Implementor 0x%02x, Variant 0x%x, Architecture %u, Part 0x%03x, Revision %u", midr >> 24, (midr >> 20) & 0xF,
+		br_safe_sprintf(signaturePie, 120, "Implementor 0x%02x, Variant 0x%x, Architecture %u, Part 0x%03x, Revision %u", midr >> 24, (midr >> 20) & 0xF,
 			(midr >> 16) & 0xF, (midr >> 4) & 0xFFF, midr & 0xF);
 		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 		return;
@@ -1480,7 +1470,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 				"JEP-106 Bank 0x%02x Manufacturer 0x%02x, SoC ID 0x%04x, SoC Revision 0x%08x",
 				(jep106 >> 24) & 0x7F, (jep106 >> 16) & 0x7F, jep106 & 0xFFFF, soc_revision);
 		}
-		sprintf_s(signaturePie, 120, "JEP-106 Bank 0x%02x Manufacturer 0x%02x, SoC ID 0x%04x, SoC Revision 0x%08x",
+		br_safe_sprintf(signaturePie, 120, "JEP-106 Bank 0x%02x Manufacturer 0x%02x, SoC ID 0x%04x, SoC Revision 0x%08x",
 			(jep106 >> 24) & 0x7F, (jep106 >> 16) & 0x7F, jep106 & 0xFFFF, soc_revision);
 		copy_to_structure_char(&centralprocessinguint.signature, signaturePie);
 
@@ -1503,7 +1493,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 				((eax >> 12) & 0xF0) + ((eax >> 4) & 0x0F),
 				eax & 0xF);
 		}
-		sprintf_s(signaturePie, 120, "Type %u, Family %u, Model %u, Stepping %u", (eax >> 12) & 0x3,
+		br_safe_sprintf(signaturePie, 120, "Type %u, Family %u, Model %u, Stepping %u", (eax >> 12) & 0x3,
 			((eax >> 20) & 0xFF) + ((eax >> 8) & 0x0F),
 			((eax >> 12) & 0xF0) + ((eax >> 4) & 0x0F),
 			eax & 0xF);
@@ -1519,7 +1509,7 @@ void dmi_print_cpuid(void (*print_cb)(const char* name, const char* format, ...)
 				((eax >> 4) & 0xF) | (((eax >> 8) & 0xF) == 0xF ? (eax >> 12) & 0xF0 : 0),
 				eax & 0xF);
 		}
-		sprintf_s(signaturePie, 120, "Family %u, Model %u, Stepping %u",
+		br_safe_sprintf(signaturePie, 120, "Family %u, Model %u, Stepping %u",
 			((eax >> 8) & 0xF) + (((eax >> 8) & 0xF) == 0xF ? (eax >> 20) & 0xFF : 0),
 			((eax >> 4) & 0xF) | (((eax >> 8) & 0xF) == 0xF ? (eax >> 12) & 0xF0 : 0),
 			eax & 0xF);
@@ -1587,14 +1577,14 @@ static void dmi_processor_id(const struct dmi_header* h)
 		pr_attr("ID", "%02X %02X %02X %02X %02X %02X %02X %02X", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
 	}
 
-	sprintf_s(processorIDPie, 999, "%02X %02X %02X %02X %02X %02X %02X %02X", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
+	br_safe_sprintf(processorIDPie, 999, "%02X %02X %02X %02X %02X %02X %02X %02X", p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]);
 	copy_to_structure_char(&centralprocessinguint.cpuid, processorIDPie);
 
 	dmi_print_cpuid(pr_attr, "Signature", sig, p);
 
 	if (sig != cpuid_x86_intel && sig != cpuid_x86_amd)
 	{
-		sprintf_s(flagsPie, 9999, "UNKNOWN");
+		br_safe_sprintf(flagsPie, 9999, "UNKNOWN");
 		copy_to_structure_char(&centralprocessinguint.cpuflags, flagsPie);
 		return;
 	}
@@ -1606,7 +1596,7 @@ static void dmi_processor_id(const struct dmi_header* h)
 		{
 			pr_list_start("Flags", "None");
 		}
-		sprintf_s(flagsPie, 9999, "None");
+		br_safe_sprintf(flagsPie, 9999, "None");
 	}
 	else
 	{
@@ -1626,11 +1616,11 @@ static void dmi_processor_id(const struct dmi_header* h)
 					pr_list_item("%s", flags[i]);
 				}
 				char temponFlag[100];
-				sprintf_s(temponFlag, 100, "%s", flags[i]);
+				br_safe_sprintf(temponFlag, 100, "%s", flags[i]);
 
 				if (i == 0)
 				{
-					sprintf_s(flagsPie, 100, "%s", flags[i]);
+					br_safe_sprintf(flagsPie, 100, "%s", flags[i]);
 					//generate_multiline_buffer(flagsPie, (char* const)temponFlag, '\n');
 				}
 				else
@@ -1662,7 +1652,7 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 		{
 			pr_attr(attr, "%.1f V", (float)(code & 0x7f) / 10);
 		}
-		sprintf_s(voltagePie, 100, "%.1f V", (float)(code & 0x7f) / 10);
+		br_safe_sprintf(voltagePie, 100, "%.1f V", (float)(code & 0x7f) / 10);
 	}
 	else if ((code & 0x07) == 0x00)
 	{
@@ -1670,7 +1660,7 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 		{
 			pr_attr(attr, "Unknown");
 		}
-		sprintf_s(voltagePie, 100, "UNKNOWN");
+		br_safe_sprintf(voltagePie, 100, "UNKNOWN");
 	}
 	else
 	{
@@ -1682,7 +1672,7 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 			if (code & (1 << i))
 			{
 				/* Insert space if not the first value */
-				off += sprintf_s(voltage_str + off, 18, off ? " %s" : "%s", voltage[i]);
+				off += br_safe_sprintf(voltage_str + off, 18, off ? " %s" : "%s", voltage[i]);
 			}
 		}
 		if (off)
@@ -1691,7 +1681,7 @@ static void dmi_processor_voltage(const char* attr, u8 code)
 			{
 				pr_attr(attr, voltage_str);
 			}
-			sprintf_s(voltagePie, 100, voltage_str);
+			br_safe_sprintf(voltagePie, 100, "%s", voltage_str);
 		}
 	}
 	copy_to_structure_char(&centralprocessinguint.operatingvoltage, voltagePie);
@@ -1704,7 +1694,7 @@ static void dmi_processor_frequency(const char* attr, const u8* p, char* const w
 
 	if (code)
 	{
-		sprintf_s(frequencyPie, 14, "%u MHz", code);
+		br_safe_sprintf(frequencyPie, 14, "%u MHz", code);
 		if (attr)
 		{
 			if (bDisplayOutput)
@@ -1722,7 +1712,7 @@ static void dmi_processor_frequency(const char* attr, const u8* p, char* const w
 	}
 	else
 	{
-		sprintf_s(frequencyPie, 14, "Unknown");
+		br_safe_sprintf(frequencyPie, 14, "Unknown");
 		if (attr)
 		{
 			if (bDisplayOutput)
@@ -1738,7 +1728,6 @@ static void dmi_processor_frequency(const char* attr, const u8* p, char* const w
 			}
 		}
 	}
-
 	copy_to_structure_char((char**)writebuffer, frequencyPie);
 }
 
@@ -1869,7 +1858,7 @@ static void dmi_processor_characteristics(const char* attr, u16 code)
 		{
 			pr_attr(attr, "None");
 		}
-		sprintf_s(processorCharactersticsPie, 1000, "None");
+		br_safe_sprintf(processorCharactersticsPie, 1000, "None");
 	}
 	else
 	{
@@ -1891,7 +1880,7 @@ static void dmi_processor_characteristics(const char* attr, u16 code)
 				}
 				if (firstCounter == 0)
 				{
-					sprintf_s(processorCharactersticsPie, 400, "%s", characteristics[i - 2]);
+					br_safe_sprintf(processorCharactersticsPie, 400, "%s", characteristics[i - 2]);
 					firstCounter = 1;
 				}
 				else
@@ -2044,7 +2033,7 @@ static void dmi_memory_module_types(const char* attr, u16 code, int flat)
 			if (code & (1 << i))
 			{
 				/* Insert space if not the first value */
-				off += sprintf_s(type_str + off, 68,
+				off += br_safe_sprintf(type_str + off, 68,
 					off ? " %s" : "%s",
 					types[i]);
 			}
@@ -2175,12 +2164,6 @@ static void dmi_cache_size_2(const char* attr, u32 code)
 	dmi_print_memory_size(attr, size, 1);
 }
 
-static void dmi_cache_size(const char* attr, u16 code)
-{
-	dmi_cache_size_2(attr,
-		(((u32)code & 0x8000LU) << 16) | (code & 0x7FFFLU));
-}
-
 static void dmi_cache_types(const char* attr, u16 code, int flat)
 {
 	/* 7.8.2 */
@@ -2206,7 +2189,7 @@ static void dmi_cache_types(const char* attr, u16 code, int flat)
 			if (code & (1 << i))
 			{
 				/* Insert space if not the first value */
-				off += sprintf_s(type_str + off, 70,
+				off += br_safe_sprintf(type_str + off, 70,
 					off ? " %s" : "%s",
 					types[i]);
 			}
@@ -2701,7 +2684,7 @@ static void dmi_slot_peers(u8 n, const u8* data)
 
 	for (i = 1; i <= n; i++, data += 5)
 	{
-		sprintf_s(attr, 16, "Peer Device %hhu", (u8)i);
+		br_safe_sprintf(attr, 16, "Peer Device %hhu", (u8)i);
 		pr_attr(attr, "%04x:%02x:%02x.%x (Width %u)",
 			WORD(data), data[2], data[3] >> 3, data[3] & 0x07,
 			data[4]);
@@ -2848,7 +2831,7 @@ static void dmi_oem_strings(const struct dmi_header* h)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf_s(attr, 11, "String %hhu", (u8)i);
+		br_safe_sprintf(attr, 11, "String %hhu", (u8)i);
 		pr_attr(attr, "%s", dmi_string(h, i));
 	}
 }
@@ -2866,7 +2849,7 @@ static void dmi_system_configuration_options(const struct dmi_header* h)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf_s(attr, 11, "Option %hhu", (u8)i);
+		br_safe_sprintf(attr, 11, "Option %hhu", (u8)i);
 		pr_attr(attr, "%s", dmi_string(h, i));
 	}
 }
@@ -2891,7 +2874,7 @@ static void dmi_bios_languages(const struct dmi_header* h)
 		}
 		if (i == 1)
 		{
-			sprintf_s(languagePie, 100, "%s", dmi_string(h, i));
+			br_safe_sprintf(languagePie, 100, "%s", dmi_string(h, i));
 		}
 		else
 		{
@@ -3067,10 +3050,10 @@ static void dmi_event_log_descriptors(u8 count, u8 len, const u8* p)
 	{
 		if (len >= 0x02)
 		{
-			sprintf_s(attr, 16, "Descriptor %d", i + 1);
+			br_safe_sprintf(attr, 16, "Descriptor %d", i + 1);
 			pr_attr(attr, "%s",
 				dmi_event_log_descriptor_type(p[i * len]));
-			sprintf_s(attr, 16, "Data Format %d", i + 1);
+			br_safe_sprintf(attr, 16, "Data Format %d", i + 1);
 			pr_attr(attr, "%s",
 				dmi_event_log_descriptor_format(p[i * len + 1]));
 		}
@@ -3182,7 +3165,7 @@ static void dmi_memory_device_size(u16 code, char* const writebuffer)
 		{
 			pr_attr("Size", "No Module Installed");
 		}
-		sprintf_s(characteristicSizePie, 14, "Seems Fake");
+		br_safe_sprintf(characteristicSizePie, 14, "Seems Fake");
 	}
 	else if (code == 0xFFFF)
 	{
@@ -3190,7 +3173,7 @@ static void dmi_memory_device_size(u16 code, char* const writebuffer)
 		{
 			pr_attr("Size", "Unknown");
 		}
-		sprintf_s(characteristicSizePie, 14, "Size Unknown");
+		br_safe_sprintf(characteristicSizePie, 14, "Size Unknown");
 	}
 	else
 	{
@@ -3203,7 +3186,7 @@ static void dmi_memory_device_size(u16 code, char* const writebuffer)
 		{
 			dmi_print_memory_size("Size", s, 1);
 		}
-		sprintf_s(characteristicSizePie, 14, "%u %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
+		br_safe_sprintf(characteristicSizePie, 14, "%lu %s", dmi_compute_memory_size_numerical_part(s), dmi_compute_memory_size_units_or_dimensions_part(s, 1));
 	}
 
 	copy_to_structure_char((char**)writebuffer, characteristicSizePie);
@@ -3226,7 +3209,7 @@ static void dmi_memory_device_extended_size(u32 code, char* const writebuffer)
 			pr_attr("Size", "%lu MB", (unsigned long)code);
 		}
 
-		sprintf_s(characteristicSizePie, 14, "%lu MB", (unsigned long)code);
+		br_safe_sprintf(characteristicSizePie, 14, "%lu MB", (unsigned long)code);
 	}
 	else if (code & 0xFFC00UL)
 	{
@@ -3234,7 +3217,7 @@ static void dmi_memory_device_extended_size(u32 code, char* const writebuffer)
 		{
 			pr_attr("Size", "%lu GB", (unsigned long)code >> 10);
 		}
-		sprintf_s(characteristicSizePie, 14, "%lu MB", (unsigned long)code >> 10);
+		br_safe_sprintf(characteristicSizePie, 14, "%lu MB", (unsigned long)code >> 10);
 	}
 	else
 	{
@@ -3242,7 +3225,7 @@ static void dmi_memory_device_extended_size(u32 code, char* const writebuffer)
 		{
 			pr_attr("Size", "%lu TB", (unsigned long)code >> 20);
 		}
-		sprintf_s(characteristicSizePie, 14, "%lu MB", (unsigned long)code >> 20);
+		br_safe_sprintf(characteristicSizePie, 14, "%lu MB", (unsigned long)code >> 20);
 	}
 
 	copy_to_structure_char((char**)writebuffer, characteristicSizePie);
@@ -3259,7 +3242,7 @@ static void dmi_memory_voltage_value(const char* attr, u16 code, char* const wri
 		{
 			pr_attr(attr, "Unknown");
 		}
-		sprintf_s(characteristicVoltage, 6, "NA");
+		br_safe_sprintf(characteristicVoltage, 6, "NA");
 	}
 	else
 	{
@@ -3267,7 +3250,7 @@ static void dmi_memory_voltage_value(const char* attr, u16 code, char* const wri
 		{
 			pr_attr(attr, code % 100 ? "%g V" : "%.1f V", (float)code / 1000);
 		}
-		sprintf_s(characteristicVoltage, 6, code % 100 ? "%g V" : "%.1f V", (float)code / 1000);
+		br_safe_sprintf(characteristicVoltage, 6, code % 100 ? "%g V" : "%.1f V", (float)code / 1000);
 	}
 
 	if (writebuffer != NULL)
@@ -3414,7 +3397,7 @@ static void dmi_memory_device_type_detail(u16 code)
 		{
 			if (code & (1 << i))
 			{
-				off += sprintf_s(list + off, 172, off ? " %s" : "%s", detail[i - 1]);
+				off += br_safe_sprintf(list + off, 172, off ? " %s" : "%s", detail[i - 1]);
 				if (bDisplayOutput)
 				{
 					pr_attr("Type Detail", list);
@@ -3436,7 +3419,7 @@ static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2, char
 			{
 				pr_attr(attr, "Unknown");
 			}
-			sprintf_s(characteristicSpeed, 14, "Speed Unknown");
+			br_safe_sprintf(characteristicSpeed, 14, "Speed Unknown");
 		}
 		else
 		{
@@ -3444,7 +3427,7 @@ static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2, char
 			{
 				pr_attr(attr, "%lu MT/s", code2);
 			}
-			sprintf_s(characteristicSpeed, 14, "%lu MT/s", code2);// Megatransfers per second
+			br_safe_sprintf(characteristicSpeed, 14, "%u MT/s", code2);// Megatransfers per second
 		}
 	}
 	else
@@ -3455,7 +3438,7 @@ static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2, char
 			{
 				pr_attr(attr, "Unknown");
 			}
-			sprintf_s(characteristicSpeed, 14, "Speed Unknown");
+			br_safe_sprintf(characteristicSpeed, 14, "Speed Unknown");
 		}
 		else
 		{
@@ -3463,7 +3446,7 @@ static void dmi_memory_device_speed(const char* attr, u16 code1, u32 code2, char
 			{
 				pr_attr(attr, "%u MT/s", code1);
 			}
-			sprintf_s(characteristicSpeed, 14, "%u MT/s", code1);
+			br_safe_sprintf(characteristicSpeed, 14, "%u MT/s", code1);
 		}
 	}
 
@@ -3526,7 +3509,7 @@ static void dmi_memory_operating_mode_capability(u16 code)
 		{
 			if (code & (1 << i))
 			{
-				off += sprintf_s(list + off, 99, off ? " %s" : "%s", mode[i - 1]);
+				off += br_safe_sprintf(list + off, 99, off ? " %s" : "%s", mode[i - 1]);
 			}
 
 			if (bDisplayOutput)
@@ -3868,25 +3851,25 @@ static void dmi_power_controls_power_on(const u8* p)
 
 	/* 7.26.1 */
 	if (dmi_bcd_range(p[0], 0x01, 0x12))
-		off += sprintf_s(time + off, 15, "%02X", p[0]);
+		off += br_safe_sprintf(time + off, 15, "%02X", p[0]);
 	else
-		off += sprintf_s(time + off, 15, "*");
+		off += br_safe_sprintf(time + off, 15, "*");
 	if (dmi_bcd_range(p[1], 0x01, 0x31))
-		off += sprintf_s(time + off, 15, "-%02X", p[1]);
+		off += br_safe_sprintf(time + off, 15, "-%02X", p[1]);
 	else
-		off += sprintf_s(time + off, 15, "-*");
+		off += br_safe_sprintf(time + off, 15, "-*");
 	if (dmi_bcd_range(p[2], 0x00, 0x23))
-		off += sprintf_s(time + off, 15, " %02X", p[2]);
+		off += br_safe_sprintf(time + off, 15, " %02X", p[2]);
 	else
-		off += sprintf_s(time + off, 15, " *");
+		off += br_safe_sprintf(time + off, 15, " *");
 	if (dmi_bcd_range(p[3], 0x00, 0x59))
-		off += sprintf_s(time + off, 15, ":%02X", p[3]);
+		off += br_safe_sprintf(time + off, 15, ":%02X", p[3]);
 	else
-		off += sprintf_s(time + off, 15, ":*");
+		off += br_safe_sprintf(time + off, 15, ":*");
 	if (dmi_bcd_range(p[4], 0x00, 0x59))
-		off += sprintf_s(time + off, 15, ":%02X", p[4]);
+		off += br_safe_sprintf(time + off, 15, ":%02X", p[4]);
 	else
-		off += sprintf_s(time + off, 15, ":*");
+		off += br_safe_sprintf(time + off, 15, ":*");
 
 	pr_attr("Next Scheduled Power-on", time);
 }
@@ -4193,9 +4176,9 @@ static void dmi_memory_channel_devices(u8 count, const u8* p)
 
 	for (i = 1; i <= count; i++)
 	{
-		sprintf_s(attr, 18, "Device %hhu Load", (u8)i);
+		br_safe_sprintf(attr, 18, "Device %hhu Load", (u8)i);
 		pr_attr(attr, "%u", p[3 * i]);
-		sprintf_s(attr, 18, "Device %hhu Handle", (u8)i);
+		br_safe_sprintf(attr, 18, "Device %hhu Handle", (u8)i);
 		pr_attr(attr, "0x%04X", WORD(p + 3 * i + 1));
 	}
 }
@@ -4534,12 +4517,12 @@ static void dmi_parse_protocol_record(u8* rec)
 	if (assign_val == 0x1 || assign_val == 0x3)
 	{
 		/* DSP0270: 8.6: the Host IPv[4|6] Address */
-		sprintf_s(attr, 38, "%s Address", addrstr);
+		br_safe_sprintf(attr, 38, "%s Address", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[18], buf, addrtype));
 
 		/* DSP0270: 8.6: Prints the Host IPv[4|6] Mask */
-		sprintf_s(attr, 38, "%s Mask", addrstr);
+		br_safe_sprintf(attr, 38, "%s Mask", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[34], buf, addrtype));
 	}
@@ -4562,13 +4545,13 @@ static void dmi_parse_protocol_record(u8* rec)
 		u32 vlan;
 
 		/* DSP0270: 8.6: Prints the Redfish IPv[4|6] Service Address */
-		sprintf_s(attr, 38, "%s Redfish Service Address", addrstr);
+		br_safe_sprintf(attr, 38, "%s Redfish Service Address", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[52], buf,
 				addrtype));
 
 		/* DSP0270: 8.6: Prints the Redfish IPv[4|6] Service Mask */
-		sprintf_s(attr, 38, "%s Redfish Service Mask", addrstr);
+		br_safe_sprintf(attr, 38, "%s Redfish Service Mask", addrstr);
 		pr_subattr(attr, "%s",
 			dmi_address_decode(&rdata[68], buf,
 				addrtype));
@@ -4863,10 +4846,14 @@ static void dmi_firmware_components(u8 count, const u8* p)
 // Some global variables for BiosReader
 struct bios_information biosinformation;
 struct mb_language_modules mblanguagemodules;
-static struct random_access_memory* randomaccessmemory;
+struct random_access_memory* randomaccessmemory;
 struct turing_machine_system_memory turingmachinesystemmemory;
 struct central_processing_unit centralprocessinguint;
 struct graphics_processing_unit graphicsprocessingunit;
+
+#ifdef BR_MAC_PLATFORM
+static mach_port_t macPort = MACH_PORT_NULL;
+#endif
 
 static int bAlreadyRun = 0;
 static unsigned int ramCounter;
@@ -4885,6 +4872,7 @@ static void global_initialization_of_structs()
 	biosinformation.biosreleasedate = NULL;
 	biosinformation.biosromsize = NULL;
 	biosinformation.version = NULL;
+	br_safe_sprintf(biosinformation.bioscharacteristics, 9999, "");
 	mblanguagemodules.currentactivemodule = NULL;
 	mblanguagemodules.supportedlanguagemodules = NULL;
 
@@ -4923,6 +4911,10 @@ static void global_initialization_of_structs()
 	graphicsprocessingunit.vendor = NULL;
 	graphicsprocessingunit.gpuModel = NULL;
 	graphicsprocessingunit.grandtotalvideomemory = NULL;
+
+	mblanguagemodules.bIsFilled = 0;
+	mblanguagemodules.currentactivemodule = NULL;
+	mblanguagemodules.supportedlanguagemodules = NULL;
 }
 
 /***********************************************************************************************************
@@ -5157,6 +5149,19 @@ void reset_electronics_structures()
 	{
 		free(graphicsprocessingunit.grandtotalvideomemory);
 	}
+
+	// language clearence
+	mblanguagemodules.bIsFilled = 0;
+
+	if(mblanguagemodules.supportedlanguagemodules != NULL)
+	{
+		free(mblanguagemodules.supportedlanguagemodules);
+	}
+
+	if(mblanguagemodules.currentactivemodule != NULL)
+	{
+		free(mblanguagemodules.currentactivemodule);
+	}
 }
 
 /***************************************************************************************************************************
@@ -5250,16 +5255,14 @@ static void ashwamegha_run()
 
 	// Nun standard C function
 	// Deserves a blog-post!
-#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
+#if defined (BR_LINUX_PLATFORM)
 	/*
 	 * We don't want stdout and stderr to be mixed up if both are
 	 * redirected to the same file.
 	 */
 	setlinebuf(stdout); // standard output stream
 	setlinebuf(stderr); // standard error output stream
-#endif // BR_LINUX_PLATFORM
 
-#ifdef BR_LINUX_PLATFORM
 	/* Type of file sizes and offsets.  */
 	size_t fileSize; // Useful file size (the amount of data read)
 
@@ -5310,16 +5313,11 @@ static void ashwamegha_run()
 	{
 		printf("There is something terribly wrong with the file %s, Goodbye!/n", SYS_ENTRY_FILE);
 	}
-
-	switch (informationCategory)
-	{
-	case ss_bios:
-		return &biosinformation;
-
-	default:
-		return NULL;
-	}
 #endif // BR_LINUX_PLATFORM
+
+#ifdef BR_MAC_PLATFORM
+	mac_device_service_gauger();
+#endif // BR_MAC_PLATFORM
 
 #ifdef BR_WINDOWS_PLATFORM
 	PRawSMBIOSData rawInformation = get_raw_smbios_table();
@@ -5352,7 +5350,7 @@ static void ashwamegha_run()
 static void copy_to_already_initialized_structure_char(char** destinationPointer, const char* sourcePointer)
 {
 	size_t sourceSize = sizeof(char) * strlen(sourcePointer) + 1;
-	strcpy_s((char*)destinationPointer, sourceSize, sourcePointer);
+	br_safe_strcpy((char*)destinationPointer, sourceSize, sourcePointer);
 }
 
 /*************************************************************************************************
@@ -5371,7 +5369,7 @@ static void copy_to_structure_char(char** destinationPointer, const char* source
 {
 	size_t sourceSize = sizeof(char) * strlen(sourcePointer) + 1;
 	*destinationPointer = malloc(sourceSize);
-	strcpy_s(*destinationPointer, sourceSize, sourcePointer);
+	br_safe_strcpy(*destinationPointer, sourceSize, sourcePointer);
 }
 
 /*********************************************************************************************************
@@ -5489,7 +5487,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 		char graphicsmemorysize[10];
 
-		sprintf_s(graphicsmemorysize, 10, "%d MB", total_mem_kb / 1000);
+		br_safe_sprintf(graphicsmemorysize, 10, "%d MB", total_mem_kb / 1000);
 
 		copy_to_structure_char(&graphicsprocessingunit.vendor, (char*)glGetString(GL_VENDOR));
 		copy_to_structure_char(&graphicsprocessingunit.gpuModel, (char*)glGetString(GL_RENDERER));
@@ -5720,7 +5718,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			{
 				pr_attr("Core Count", "%u", h->length >= 0x2C && data[0x23] == 0xFF ? WORD(data + 0x2A) : data[0x23]);
 			}
-			sprintf_s(coreCountPie, 10, "%u", h->length >= 0x2C && data[0x23] == 0xFF ? WORD(data + 0x2A) : data[0x23]);
+			br_safe_sprintf(coreCountPie, 10, "%u", h->length >= 0x2C && data[0x23] == 0xFF ? WORD(data + 0x2A) : data[0x23]);
 			copy_to_structure_char(&centralprocessinguint.corescount, coreCountPie);
 		}
 
@@ -5731,7 +5729,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			{
 				pr_attr("Cores Enabled", "%u", h->length >= 0x2E && data[0x24] == 0xFF ? WORD(data + 0x2C) : data[0x24]);
 			}
-			sprintf_s(coresEnabledCountPie, 10, "%u", h->length >= 0x2E && data[0x24] == 0xFF ? WORD(data + 0x2C) : data[0x24]);
+			br_safe_sprintf(coresEnabledCountPie, 10, "%u", h->length >= 0x2E && data[0x24] == 0xFF ? WORD(data + 0x2C) : data[0x24]);
 			copy_to_structure_char(&centralprocessinguint.enabledcorescount, coresEnabledCountPie);
 		}
 
@@ -5742,7 +5740,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			{
 				pr_attr("Thread Count", "%u", h->length >= 0x30 && data[0x25] == 0xFF ? WORD(data + 0x2E) : data[0x25]);
 			}
-			sprintf_s(threadsCountPie, 10, "%u", h->length >= 0x30 && data[0x25] == 0xFF ? WORD(data + 0x2E) : data[0x25]);
+			br_safe_sprintf(threadsCountPie, 10, "%u", h->length >= 0x30 && data[0x25] == 0xFF ? WORD(data + 0x2E) : data[0x25]);
 			copy_to_structure_char(&centralprocessinguint.threadcount, threadsCountPie);
 		}
 
@@ -5760,7 +5758,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 		if (h->length < 0x16)
 		{
-			sprintf_s(languagePie, 65, "Unknown");
+			br_safe_sprintf(languagePie, 65, "Unknown");
 			copy_to_structure_char(&mblanguagemodules.currentactivemodule, languagePie);
 			copy_to_structure_char(&mblanguagemodules.supportedlanguagemodules, languagePie);
 			break;
@@ -5860,7 +5858,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 				if (turingmachinesystemmemory.bIsFilled)
 				{
 					char sizeInformation[8];
-					sprintf_s(sizeInformation, 8, "%u %s", dmi_compute_memory_size_numerical_part(QWORD(data + 0x0F)),
+					br_safe_sprintf(sizeInformation, 8, "%lu %s", dmi_compute_memory_size_numerical_part(QWORD(data + 0x0F)),
 						dmi_compute_memory_size_units_or_dimensions_part(QWORD(data + 0x0F), 0));
 					copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, sizeInformation);
 				}
@@ -5881,7 +5879,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			if (turingmachinesystemmemory.bIsFilled)
 			{
 				char sizeInformation[8];
-				sprintf_s(sizeInformation, 8, "%u %s", dmi_compute_memory_size_numerical_part(capacity),
+				br_safe_sprintf(sizeInformation, 8, "%lu %s", dmi_compute_memory_size_numerical_part(capacity),
 					dmi_compute_memory_size_units_or_dimensions_part(capacity, 1));
 				copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, sizeInformation);
 			}
@@ -6097,7 +6095,7 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 
 		if (h->length < 0x3C)
 		{
-			ramCounter;
+			ramCounter++;
 			break;
 		}
 
@@ -6213,6 +6211,390 @@ static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver
 		printf("%s\n", dmi_string(h, data[offset]));
 	}
 }
+
+#ifdef BR_MAC_PLATFORM
+/*
+ ****************************************************************************************
+ *
+ * Routine to extract particular property value from the specified dictionary
+ * Please note: The life span of the object (pointed by pointer to pointer assignValue)
+ * needs to be take care of.
+ * https://github.com/ravimohan1991/BiosReader/wiki/Object-Ownership-And-Lifespan---The-Apple's-POV
+ *
+ * @param propertiesDictionary    Collection of all the properties, corresponding
+ *                                to a physical device object, from which the value
+ *                                needs be extracted
+ * @param keyString               The string representation of the property key
+ * @param MacPropertyDataTypes    The data structure of the property value
+ *                                to be extracted
+ * @param assignValueTo           The pointer reference for extracted value
+ *
+ ****************************************************************************************
+ */
+
+void extract_property_value_from_dictionary(CFMutableDictionaryRef propertiesDictionary, const char* keyString,
+		const void** assignValueTo)
+{
+	// The pointer that shall, well point to, the value
+	const void* valuePointer;
+
+	CFStringRef fetchingKey = CFStringCreateWithCString(NULL, keyString, CFStringGetSystemEncoding()); // Key to be fetched from plethora of fields contained within the property dictionary
+
+	// Needs to be taken care off (lifespan wise)
+	// https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/Ownership.html#//apple_ref/doc/uid/20001148-SW1
+	if(!CFDictionaryGetValueIfPresent(propertiesDictionary, fetchingKey, &valuePointer))
+	{
+		//fprintf(stderr, "Value doesn't exist. Re-check the intention.\n");
+		*assignValueTo = NULL;
+		return;
+	}
+
+	*assignValueTo = valuePointer;
+
+	// Caution: We own the object and control its life span
+	// No Mercy!!
+	CFRetain(*assignValueTo);
+}
+
+/*
+ *********************************************************************************************************
+ *
+ * A method to iterate over all the services of particular class
+ * Please read
+ * 1. https://developer.apple.com/library/archive/documentation/DeviceDrivers/Conceptual/AccessingHardware/AH_Finding_Devices/AH_Finding_Devices.html
+ * 2. https://developer.apple.com/library/archive/documentation/DeviceDrivers/Conceptual/AccessingHardware/AH_Device_Access_IOKit/AH_Device_Access_IOKit.html
+ *
+ * @param serviceClassString     The particular (sub)class of IOService to be matched while iterating
+ *
+ *********************************************************************************************************
+ */
+
+void iterate_over_mac_platform_devices(const char* serviceClassString)
+{
+	if(macPort == MACH_PORT_NULL)
+	{
+		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
+		return;
+	}
+
+	kern_return_t returnCode;
+
+	// Create a matching dictionary that specifies an IOService class match.
+	CFDictionaryRef serviceDictionary = IOServiceMatching(serviceClassString);
+
+	// The Apple (is it?) iterator
+	io_iterator_t appleIt;
+
+	returnCode = IOServiceGetMatchingServices(macPort, serviceDictionary, &appleIt);
+
+	if(returnCode != KERN_SUCCESS)
+	{
+		printf("BR_ERROR: %s", mach_error_string(returnCode));
+		return NULL;
+	}
+
+	io_object_t deviceObject;
+	kern_return_t kernelReturnCode;
+	io_name_t deviceName;
+	CFMutableDictionaryRef propertiesDict = NULL; // The dictionary of variety of fields and corresponding useful value data
+	const void* valuePointer;
+
+	char deviceIdentificationString[50] = "";
+
+	while((deviceObject = IOIteratorNext(appleIt)))
+	{
+		valuePointer = NULL;
+
+		// Store all the property values corresponding to particular device object (of queired class)
+		kernelReturnCode = IORegistryEntryCreateCFProperties(deviceObject, &propertiesDict, kCFAllocatorDefault, kNilOptions);
+
+		if(KERN_SUCCESS != kernelReturnCode)
+		{
+			printf("BR_ERROR: %s\n", mach_error_string(kernelReturnCode));
+			continue;
+		}
+
+		/*
+		extract_property_value_from_dictionary(propertiesDict, "clock-frequency", &valuePointer);
+
+		NSData* data = valuePointer;
+		u32 valueTake2 = DWORD(data.bytes);
+		*/
+
+		// First Mac Bios equivalent (my interpretation)
+		extract_property_value_from_dictionary(propertiesDict, "target-type", &valuePointer);
+
+		NSData* data = valuePointer;
+		//u32 valueTake2 = DWORD(data.bytes);
+
+		printf("%s", (const char*)data.bytes);
+
+		// Free Apple resources via handles
+		IOObjectRelease(deviceObject);
+
+		if(propertiesDict != NULL)
+		{
+			CFRelease(propertiesDict);
+			propertiesDict = NULL;
+		}
+
+		if(valuePointer != NULL)
+		{
+			CFRelease(valuePointer);
+			valuePointer = NULL;
+		}
+	}
+
+	return NULL;
+}
+
+/*
+ **************************************************************************************************************************
+ *
+ * This routine is an attempt to fill Bios information with what I understand to be the equivalent in Macbook.
+ * Note: Some fields may remain unfilled. A little price for bringing Macbook and PC on same footing (intuitive matching)!!
+ *
+ **************************************************************************************************************************
+ */
+
+static void fill_up_bios_from_mac_equivalent()
+{
+	if(macPort == MACH_PORT_NULL)
+	{
+		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
+		return;
+	}
+
+	kern_return_t returnCode;
+	char stringToPrint[50] = "";
+
+	// Create a matching dictionary that specifies an IOService class match.
+	CFDictionaryRef serviceDictionary = IOServiceMatching("IOPlatformExpertDevice");
+
+	io_service_t service = IOServiceGetMatchingService(macPort, serviceDictionary);
+	CFMutableDictionaryRef propertiesDict = NULL; // The dictionary of variety of fields and corresponding useful value data
+
+	if (kIOReturnSuccess != IORegistryEntryCreateCFProperties(service,
+					&propertiesDict, kCFAllocatorDefault, kNilOptions))
+	{
+		printf("BR_ERROR: No properties can be extracted from the IOPlatformExpertDevice IOService.\n");
+		return;
+	}
+	CFRetain(propertiesDict);
+
+	const void* valuePointer = NULL;
+	NSData* data = NULL;
+
+	extract_property_value_from_dictionary(propertiesDict, "target-type", &valuePointer);
+	data = valuePointer;
+	copy_to_structure_char(&biosinformation.version, (const char*)data.bytes);
+	if(valuePointer != NULL)
+	{
+		CFRelease(valuePointer);
+		valuePointer = NULL;
+		data = NULL;
+	}
+
+	extract_property_value_from_dictionary(propertiesDict, "time-stamp", &valuePointer);
+	data = valuePointer;
+	copy_to_structure_char(&biosinformation.biosreleasedate, (const char*)data.bytes);
+	if(valuePointer != NULL)
+	{
+		CFRelease(valuePointer);
+		valuePointer = NULL;
+		data = NULL;
+	}
+
+	extract_property_value_from_dictionary(propertiesDict, "manufacturer", &valuePointer);
+	data = valuePointer;
+	copy_to_structure_char(&biosinformation.vendor, (const char*)data.bytes);
+	if(valuePointer != NULL)
+	{
+		CFRelease(valuePointer);
+		valuePointer = NULL;
+		data = NULL;
+	}
+
+	// Just maybe this is what I think it be (bios rom size)
+	extract_property_value_from_dictionary(propertiesDict, "#size-cells", &valuePointer);
+	data = valuePointer;
+	br_safe_sprintf(stringToPrint, 50, "%u MB", DWORD(data.bytes));
+	copy_to_structure_char(&biosinformation.biosromsize, stringToPrint);
+	if(valuePointer != NULL)
+	{
+		CFRelease(valuePointer);
+		valuePointer = NULL;
+		data = NULL;
+	}
+
+	// Again, maybe model-config property is BIOS characteristic equivalent
+
+	biosinformation.bIsFilled = true;
+
+	// Free Apple resources via handles
+	if(serviceDictionary != NULL)
+	{
+		CFRelease(serviceDictionary);
+		serviceDictionary = NULL;
+	}
+
+	if(propertiesDict != NULL)
+	{
+		CFRelease(propertiesDict);
+		propertiesDict = NULL;
+	}
+}
+
+static void fill_up_processor_information()
+{
+	if(macPort == MACH_PORT_NULL)
+	{
+		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
+		return;
+	}
+
+	kern_return_t returnCode;
+	char stringToPrint[50] = "";
+
+	// Create a matching dictionary that specifies an IOService class match.
+	CFDictionaryRef serviceDictionary = IOServiceMatching("IOPlatformDevice");
+
+	// The Apple (is it?) iterator
+	io_iterator_t appleIt;
+
+	returnCode = IOServiceGetMatchingServices(macPort, serviceDictionary, &appleIt);
+
+	if(returnCode != KERN_SUCCESS)
+	{
+		printf("BR_ERROR: %s\n", mach_error_string(returnCode));
+		return NULL;
+	}
+
+	io_object_t deviceObject;
+	kern_return_t kernelReturnCode;
+	io_name_t deviceName;
+	CFMutableDictionaryRef propertiesDict = NULL; // The dictionary of variety of fields and corresponding useful value data
+	const void* valuePointer = NULL;
+
+	uint32_t activeCores = 0;
+
+	while((deviceObject = IOIteratorNext(appleIt)))
+	{
+		// Store all the property values corresponding to particular device object (of queired class)
+		kernelReturnCode = IORegistryEntryCreateCFProperties(deviceObject, &propertiesDict, kCFAllocatorDefault, kNilOptions);
+
+		if(KERN_SUCCESS != kernelReturnCode)
+		{
+			printf("BR_ERROR: %s\n", mach_error_string(kernelReturnCode));
+			continue;
+		}
+
+		extract_property_value_from_dictionary(propertiesDict, "name", &valuePointer);
+
+		NSData* data = valuePointer;
+
+		if(valuePointer != NULL && strcmp("cpus", (const char*)data.bytes) == 0)
+		{
+			if(valuePointer != NULL)
+			{
+				CFRelease(valuePointer);
+				valuePointer = NULL;
+			}
+
+			extract_property_value_from_dictionary(propertiesDict, "max_cpus", &valuePointer);
+			data = valuePointer;
+			br_safe_sprintf(stringToPrint, 50, "%u", DWORD(data.bytes));
+			copy_to_structure_char(&centralprocessinguint.corescount, stringToPrint);
+			if(valuePointer != NULL)
+			{
+				CFRelease(valuePointer);
+				valuePointer = NULL;
+				data = NULL;
+			}
+		}
+
+		if(valuePointer != NULL)
+		{
+			CFRelease(valuePointer);
+			valuePointer = NULL;
+		}
+
+		extract_property_value_from_dictionary(propertiesDict, "device_type", &valuePointer);
+		data = valuePointer;
+
+		if(valuePointer != NULL && strcmp("cpu", (const char*)data.bytes) == 0)
+		{
+			const void* cpuStateValue = NULL;
+			NSData* cpuData = NULL;
+
+			extract_property_value_from_dictionary(propertiesDict, "state", &cpuStateValue);
+
+			cpuData = cpuStateValue;
+
+			if(strcmp("running", (const char*)cpuData.bytes) == 0)
+			{
+				activeCores++;
+			}
+
+			if(cpuStateValue != NULL)
+			{
+				CFRelease(cpuStateValue);
+				cpuStateValue = NULL;
+				cpuData = NULL;
+			}
+		}
+
+		if(valuePointer != NULL)
+		{
+			CFRelease(valuePointer);
+			valuePointer = NULL;
+		}
+
+		// Free Apple resources via handles
+		IOObjectRelease(deviceObject);
+
+		if(propertiesDict != NULL)
+		{
+			CFRelease(propertiesDict);
+			propertiesDict = NULL;
+		}
+
+		if(valuePointer != NULL)
+		{
+			CFRelease(valuePointer);
+			valuePointer = NULL;
+		}
+	}
+
+	br_safe_sprintf(stringToPrint, 50, "%u", activeCores);
+	copy_to_structure_char(&centralprocessinguint.enabledcorescount, stringToPrint);
+}
+
+/*
+ **************************************************************************************************************************
+ *
+ * All the Apple relevant electronics can be accessed via services. Little different from BiosReader's methadology but how
+ * dare we to rechart theiry course with SMIOS standards!
+ * https://developer.apple.com/library/archive/documentation/DeviceDrivers/Conceptual/AccessingHardware/AH_Finding_Devices/AH_Finding_Devices.html
+ *
+ * The routine extracts the BiosReader's relevant information from the already running services on Mac.
+ *
+ **************************************************************************************************************************
+ */
+
+static void mac_device_service_gauger()
+{
+	// Check if run once only
+	IOMainPort(MACH_PORT_NULL, &macPort);
+
+	fill_up_bios_from_mac_equivalent();
+	fill_up_processor_information();
+
+	// We shall begin by attempt to extract the Apple cpu clock speed
+	// Done and done
+	// iterate_over_mac_platform_devices("IOService");
+}
+#endif
 
 /*
  **************************************************************************************************************************
@@ -6453,61 +6835,6 @@ static void dmi_table(off_t base, u32 len, u16 num, u32 ver, const char* devmem,
 		buf = mem_chunk(base, len, devmem);
 	}
 
-#ifdef BR_MAC_PLATFORM
-	// read tables returned by API call
-	if (flags & FLAG_FROM_API)
-	{
-		mach_port_t masterPort;
-		CFMutableDictionaryRef properties = NULL;
-		io_service_t service = MACH_PORT_NULL;
-		CFDataRef dataRef;
-
-		IOMainPort(MACH_PORT_NULL, &masterPort);
-		service = IOServiceGetMatchingService(masterPort,
-			IOServiceMatching("AppleSMBIOS"));
-		if (service == MACH_PORT_NULL)
-		{
-			fprintf(stderr, "AppleSMBIOS service is unreachable, sorry.\n");
-			return;
-		}
-
-		if (kIOReturnSuccess != IORegistryEntryCreateCFProperties(service,
-			&properties, kCFAllocatorDefault, kNilOptions))
-		{
-			fprintf(stderr, "No data in AppleSMBIOS IOService, sorry.\n");
-			return;
-		}
-
-		if (!CFDictionaryGetValueIfPresent(properties, CFSTR("SMBIOS"),
-			(const void**)&dataRef))
-		{
-			fprintf(stderr, "SMBIOS property data is unreachable, sorry.\n");
-			return;
-		}
-
-		len = CFDataGetLength(dataRef);
-		if ((buf = malloc(sizeof(u8) * len)) == NULL)
-		{
-			perror("malloc");
-			return;
-		}
-
-		CFDataGetBytes(dataRef, CFRangeMake(0, len), (UInt8*)buf);
-
-		if (NULL != dataRef)
-			CFRelease(dataRef);
-
-		/*
-		 * This CFRelease throws 'Segmentation fault: 11' since macOS 10.12, if
-		 * the compiled binary is not signed with an Apple developer profile.
-		 */
-		if (NULL != properties)
-			CFRelease(properties);
-
-		IOObjectRelease(service);
-	}
-#endif // BR_MAC_PLATFORM
-
 	if (buf == NULL)
 	{
 		fprintf(stderr, "Failed to read table, sorry.\n");
@@ -6571,7 +6898,7 @@ static void overwrite_smbios3_address(u8* buf)
  *
  *****************************************************************************************************************
  */
-#ifdef BR_LINUX_PLATFORM
+#if defined (BR_LINUX_PLATFORM) || defined (BR_MAC_PLATFORM)
 static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 {
 	u32 ver;
@@ -6615,45 +6942,6 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 }
 #endif // BR_LINUX_PLATFORM
 
-static int smbios_decode(u8* buf, const char* devmem, u32 flags)
-{
-	u16 ver;
-
-	/* Don't let checksum run beyond the buffer */
-	if (buf[0x05] > 0x20)
-	{
-		fprintf(stderr,
-			"Entry point length too large (%u bytes, expected %u).\n",
-			(unsigned int)buf[0x05], 0x1FU);
-		return 0;
-	}
-
-	if (!checksum(buf, buf[0x05])
-		|| memcmp(buf + 0x10, "_DMI_", 5) != 0
-		|| !checksum(buf + 0x10, 0x0F))
-		return 0;
-
-	ver = (buf[0x06] << 8) + buf[0x07];
-	/* Some BIOS report weird SMBIOS version, fix that up */
-	switch (ver)
-	{
-	case 0x021F:
-	case 0x0221:
-		fprintf(stderr, "SMBIOS version fixup (2.%d -> 2.%d).\n", ver & 0xFF, 3);
-		ver = 0x0203;
-		break;
-	case 0x0233:
-		fprintf(stderr, "SMBIOS version fixup (2.%d -> 2.%d).\n", 51, 6);
-		ver = 0x0206;
-		break;
-	}
-
-	pr_info("SMBIOS %u.%u present.", ver >> 8, ver & 0xFF);
-
-	dmi_table(DWORD(buf + 0x18), WORD(buf + 0x16), WORD(buf + 0x1C), ver << 8, devmem, flags);
-
-	return 1;
-}
 
 static int legacy_decode(u8* buf, const char* devmem, u32 flags)
 {
