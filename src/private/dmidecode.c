@@ -4873,8 +4873,6 @@ static void global_initialization_of_structs()
 	biosinformation.biosromsize = NULL;
 	biosinformation.version = NULL;
 	br_safe_sprintf(biosinformation.bioscharacteristics, 9999, "");
-	mblanguagemodules.currentactivemodule = NULL;
-	mblanguagemodules.supportedlanguagemodules = NULL;
 
 	turingmachinesystemmemory.bIsFilled = 0;
 	turingmachinesystemmemory.mounting_location = NULL;
@@ -4934,14 +4932,6 @@ void reset_electronics_structures()
 	free(biosinformation.version);
 	free(biosinformation.biosreleasedate);
 	free(biosinformation.biosromsize);
-	if (mblanguagemodules.currentactivemodule != NULL)
-	{
-		free(mblanguagemodules.currentactivemodule);
-	}
-	if (mblanguagemodules.supportedlanguagemodules != NULL)
-	{
-		free(mblanguagemodules.supportedlanguagemodules);
-	}
 
 	// Ram clearance
 	for (unsigned int i = 0; i < turingmachinesystemmemory.number_of_ram_or_system_memory_devices; i++)
@@ -5153,12 +5143,12 @@ void reset_electronics_structures()
 	// language clearence
 	mblanguagemodules.bIsFilled = 0;
 
-	if(mblanguagemodules.supportedlanguagemodules != NULL)
+	if (mblanguagemodules.supportedlanguagemodules != NULL)
 	{
 		free(mblanguagemodules.supportedlanguagemodules);
 	}
 
-	if(mblanguagemodules.currentactivemodule != NULL)
+	if (mblanguagemodules.currentactivemodule != NULL)
 	{
 		free(mblanguagemodules.currentactivemodule);
 	}
@@ -5785,7 +5775,8 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 			pr_attr("Currently Installed Language", "%s", dmi_string(h, data[0x15]));
 		}
 
-		copy_to_structure_char(&mblanguagemodules.currentactivemodule, dmi_string(h, data[0x15]));
+		br_safe_sprintf(languagePie, 65, dmi_string(h, data[0x15]));
+		copy_to_structure_char(&mblanguagemodules.currentactivemodule, languagePie);
 		break;
 
 	case 16: /* 7.17 Physical Memory Array */
@@ -6234,7 +6225,7 @@ static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver
  */
 
 void extract_property_value_from_dictionary(CFMutableDictionaryRef propertiesDictionary, const char* keyString,
-		const void** assignValueTo)
+	const void** assignValueTo)
 {
 	// The pointer that shall, well point to, the value
 	const void* valuePointer;
@@ -6243,7 +6234,7 @@ void extract_property_value_from_dictionary(CFMutableDictionaryRef propertiesDic
 
 	// Needs to be taken care off (lifespan wise)
 	// https://developer.apple.com/library/archive/documentation/CoreFoundation/Conceptual/CFMemoryMgmt/Concepts/Ownership.html#//apple_ref/doc/uid/20001148-SW1
-	if(!CFDictionaryGetValueIfPresent(propertiesDictionary, fetchingKey, &valuePointer))
+	if (!CFDictionaryGetValueIfPresent(propertiesDictionary, fetchingKey, &valuePointer))
 	{
 		//fprintf(stderr, "Value doesn't exist. Re-check the intention.\n");
 		*assignValueTo = NULL;
@@ -6272,7 +6263,7 @@ void extract_property_value_from_dictionary(CFMutableDictionaryRef propertiesDic
 
 void iterate_over_mac_platform_devices(const char* serviceClassString)
 {
-	if(macPort == MACH_PORT_NULL)
+	if (macPort == MACH_PORT_NULL)
 	{
 		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
 		return;
@@ -6288,7 +6279,7 @@ void iterate_over_mac_platform_devices(const char* serviceClassString)
 
 	returnCode = IOServiceGetMatchingServices(macPort, serviceDictionary, &appleIt);
 
-	if(returnCode != KERN_SUCCESS)
+	if (returnCode != KERN_SUCCESS)
 	{
 		printf("BR_ERROR: %s", mach_error_string(returnCode));
 		return NULL;
@@ -6302,14 +6293,14 @@ void iterate_over_mac_platform_devices(const char* serviceClassString)
 
 	char deviceIdentificationString[50] = "";
 
-	while((deviceObject = IOIteratorNext(appleIt)))
+	while ((deviceObject = IOIteratorNext(appleIt)))
 	{
 		valuePointer = NULL;
 
 		// Store all the property values corresponding to particular device object (of queired class)
 		kernelReturnCode = IORegistryEntryCreateCFProperties(deviceObject, &propertiesDict, kCFAllocatorDefault, kNilOptions);
 
-		if(KERN_SUCCESS != kernelReturnCode)
+		if (KERN_SUCCESS != kernelReturnCode)
 		{
 			printf("BR_ERROR: %s\n", mach_error_string(kernelReturnCode));
 			continue;
@@ -6333,13 +6324,13 @@ void iterate_over_mac_platform_devices(const char* serviceClassString)
 		// Free Apple resources via handles
 		IOObjectRelease(deviceObject);
 
-		if(propertiesDict != NULL)
+		if (propertiesDict != NULL)
 		{
 			CFRelease(propertiesDict);
 			propertiesDict = NULL;
 		}
 
-		if(valuePointer != NULL)
+		if (valuePointer != NULL)
 		{
 			CFRelease(valuePointer);
 			valuePointer = NULL;
@@ -6360,7 +6351,7 @@ void iterate_over_mac_platform_devices(const char* serviceClassString)
 
 static void fill_up_bios_from_mac_equivalent()
 {
-	if(macPort == MACH_PORT_NULL)
+	if (macPort == MACH_PORT_NULL)
 	{
 		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
 		return;
@@ -6376,7 +6367,7 @@ static void fill_up_bios_from_mac_equivalent()
 	CFMutableDictionaryRef propertiesDict = NULL; // The dictionary of variety of fields and corresponding useful value data
 
 	if (kIOReturnSuccess != IORegistryEntryCreateCFProperties(service,
-					&propertiesDict, kCFAllocatorDefault, kNilOptions))
+		&propertiesDict, kCFAllocatorDefault, kNilOptions))
 	{
 		printf("BR_ERROR: No properties can be extracted from the IOPlatformExpertDevice IOService.\n");
 		return;
@@ -6389,7 +6380,7 @@ static void fill_up_bios_from_mac_equivalent()
 	extract_property_value_from_dictionary(propertiesDict, "target-type", &valuePointer);
 	data = valuePointer;
 	copy_to_structure_char(&biosinformation.version, (const char*)data.bytes);
-	if(valuePointer != NULL)
+	if (valuePointer != NULL)
 	{
 		CFRelease(valuePointer);
 		valuePointer = NULL;
@@ -6399,7 +6390,7 @@ static void fill_up_bios_from_mac_equivalent()
 	extract_property_value_from_dictionary(propertiesDict, "time-stamp", &valuePointer);
 	data = valuePointer;
 	copy_to_structure_char(&biosinformation.biosreleasedate, (const char*)data.bytes);
-	if(valuePointer != NULL)
+	if (valuePointer != NULL)
 	{
 		CFRelease(valuePointer);
 		valuePointer = NULL;
@@ -6409,7 +6400,7 @@ static void fill_up_bios_from_mac_equivalent()
 	extract_property_value_from_dictionary(propertiesDict, "manufacturer", &valuePointer);
 	data = valuePointer;
 	copy_to_structure_char(&biosinformation.vendor, (const char*)data.bytes);
-	if(valuePointer != NULL)
+	if (valuePointer != NULL)
 	{
 		CFRelease(valuePointer);
 		valuePointer = NULL;
@@ -6421,7 +6412,7 @@ static void fill_up_bios_from_mac_equivalent()
 	data = valuePointer;
 	br_safe_sprintf(stringToPrint, 50, "%u MB", DWORD(data.bytes));
 	copy_to_structure_char(&biosinformation.biosromsize, stringToPrint);
-	if(valuePointer != NULL)
+	if (valuePointer != NULL)
 	{
 		CFRelease(valuePointer);
 		valuePointer = NULL;
@@ -6433,13 +6424,13 @@ static void fill_up_bios_from_mac_equivalent()
 	biosinformation.bIsFilled = true;
 
 	// Free Apple resources via handles
-	if(serviceDictionary != NULL)
+	if (serviceDictionary != NULL)
 	{
 		CFRelease(serviceDictionary);
 		serviceDictionary = NULL;
 	}
 
-	if(propertiesDict != NULL)
+	if (propertiesDict != NULL)
 	{
 		CFRelease(propertiesDict);
 		propertiesDict = NULL;
@@ -6448,7 +6439,7 @@ static void fill_up_bios_from_mac_equivalent()
 
 static void fill_up_ram_information()
 {
-	if(macPort == MACH_PORT_NULL)
+	if (macPort == MACH_PORT_NULL)
 	{
 		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
 		return;
@@ -6464,12 +6455,11 @@ static void fill_up_ram_information()
 	// 1. AppleARMPE -> product
 	// 2.
 
-
 	// Assumption: only 1 ram
 	turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 1;
 
 	// Courtsey: https://stackoverflow.com/a/1396703
-	br_safe_sprintf(stringToPrint, 50, "%llu GB", [[NSProcessInfo processInfo] physicalMemory] / 1000000000);
+	br_safe_sprintf(stringToPrint, 50, "%llu GB", [[NSProcessInfo processInfo]physicalMemory] / 1000000000);
 
 	copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, stringToPrint);
 	copy_to_structure_char(&turingmachinesystemmemory.mounting_location, "System Board or Motherborad");
@@ -6488,7 +6478,7 @@ static void fill_up_ram_information()
 
 static void fill_up_processor_information()
 {
-	if(macPort == MACH_PORT_NULL)
+	if (macPort == MACH_PORT_NULL)
 	{
 		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
 		return;
@@ -6505,7 +6495,7 @@ static void fill_up_processor_information()
 
 	returnCode = IOServiceGetMatchingServices(macPort, serviceDictionary, &appleIt);
 
-	if(returnCode != KERN_SUCCESS)
+	if (returnCode != KERN_SUCCESS)
 	{
 		printf("BR_ERROR: %s\n", mach_error_string(returnCode));
 		return NULL;
@@ -6519,12 +6509,12 @@ static void fill_up_processor_information()
 
 	uint32_t activeCores = 0;
 
-	while((deviceObject = IOIteratorNext(appleIt)))
+	while ((deviceObject = IOIteratorNext(appleIt)))
 	{
 		// Store all the property values corresponding to particular device object (of queired class)
 		kernelReturnCode = IORegistryEntryCreateCFProperties(deviceObject, &propertiesDict, kCFAllocatorDefault, kNilOptions);
 
-		if(KERN_SUCCESS != kernelReturnCode)
+		if (KERN_SUCCESS != kernelReturnCode)
 		{
 			printf("BR_ERROR: %s\n", mach_error_string(kernelReturnCode));
 			continue;
@@ -6534,9 +6524,9 @@ static void fill_up_processor_information()
 
 		NSData* data = valuePointer;
 
-		if(valuePointer != NULL && strcmp("cpus", (const char*)data.bytes) == 0)
+		if (valuePointer != NULL && strcmp("cpus", (const char*)data.bytes) == 0)
 		{
-			if(valuePointer != NULL)
+			if (valuePointer != NULL)
 			{
 				CFRelease(valuePointer);
 				valuePointer = NULL;
@@ -6546,7 +6536,7 @@ static void fill_up_processor_information()
 			data = valuePointer;
 			br_safe_sprintf(stringToPrint, 50, "%u", DWORD(data.bytes));
 			copy_to_structure_char(&centralprocessinguint.corescount, stringToPrint);
-			if(valuePointer != NULL)
+			if (valuePointer != NULL)
 			{
 				CFRelease(valuePointer);
 				valuePointer = NULL;
@@ -6554,7 +6544,7 @@ static void fill_up_processor_information()
 			}
 		}
 
-		if(valuePointer != NULL)
+		if (valuePointer != NULL)
 		{
 			CFRelease(valuePointer);
 			valuePointer = NULL;
@@ -6563,7 +6553,7 @@ static void fill_up_processor_information()
 		extract_property_value_from_dictionary(propertiesDict, "device_type", &valuePointer);
 		data = valuePointer;
 
-		if(valuePointer != NULL && strcmp("cpu", (const char*)data.bytes) == 0)
+		if (valuePointer != NULL && strcmp("cpu", (const char*)data.bytes) == 0)
 		{
 			const void* cpuStateValue = NULL;
 			NSData* cpuData = NULL;
@@ -6572,12 +6562,12 @@ static void fill_up_processor_information()
 
 			cpuData = cpuStateValue;
 
-			if(strcmp("running", (const char*)cpuData.bytes) == 0)
+			if (strcmp("running", (const char*)cpuData.bytes) == 0)
 			{
 				activeCores++;
 			}
 
-			if(cpuStateValue != NULL)
+			if (cpuStateValue != NULL)
 			{
 				CFRelease(cpuStateValue);
 				cpuStateValue = NULL;
@@ -6585,7 +6575,7 @@ static void fill_up_processor_information()
 			}
 		}
 
-		if(valuePointer != NULL)
+		if (valuePointer != NULL)
 		{
 			CFRelease(valuePointer);
 			valuePointer = NULL;
@@ -6594,13 +6584,13 @@ static void fill_up_processor_information()
 		// Free Apple resources via handles
 		IOObjectRelease(deviceObject);
 
-		if(propertiesDict != NULL)
+		if (propertiesDict != NULL)
 		{
 			CFRelease(propertiesDict);
 			propertiesDict = NULL;
 		}
 
-		if(valuePointer != NULL)
+		if (valuePointer != NULL)
 		{
 			CFRelease(valuePointer);
 			valuePointer = NULL;
@@ -7050,7 +7040,6 @@ static int smbios3_decode(u8* buf, const char* devmem, u32 flags)
 	return 1;
 }
 #endif // BR_LINUX_PLATFORM
-
 
 static int legacy_decode(u8* buf, const char* devmem, u32 flags)
 {
