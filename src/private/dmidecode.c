@@ -6213,6 +6213,7 @@ static void dmi_table_string(const struct dmi_header* h, const u8* data, u16 ver
 }
 
 #ifdef BR_MAC_PLATFORM
+#import <sys/sysctl.h>
 /*
  ****************************************************************************************
  *
@@ -6445,6 +6446,46 @@ static void fill_up_bios_from_mac_equivalent()
 	}
 }
 
+static void fill_up_ram_information()
+{
+	if(macPort == MACH_PORT_NULL)
+	{
+		printf("BR_ERROR: Couldn't find suitable port. BR can't and won't try to gauge Apple services.\n");
+		return;
+	}
+
+	kern_return_t returnCode;
+	char stringToPrint[50] = "";
+
+	// Create a matching dictionary that specifies an IOService class match.
+	CFDictionaryRef serviceDictionary = IOServiceMatching("IOPlatformDevice");
+
+	// Useful information
+	// 1. AppleARMPE -> product
+	// 2.
+
+
+	// Assumption: only 1 ram
+	turingmachinesystemmemory.number_of_ram_or_system_memory_devices = 1;
+
+	// Courtsey: https://stackoverflow.com/a/1396703
+	br_safe_sprintf(stringToPrint, 50, "%llu GB", [[NSProcessInfo processInfo] physicalMemory] / 1000000000);
+
+	copy_to_structure_char(&turingmachinesystemmemory.total_grand_capacity, stringToPrint);
+	copy_to_structure_char(&turingmachinesystemmemory.mounting_location, "System Board or Motherborad");
+
+	allocate_and_initialize_memory_structure();
+
+	randomaccessmemory[0].bIsFilled = true;
+	copy_to_structure_char(&randomaccessmemory[0].ramsize, stringToPrint);
+	copy_to_structure_char(&randomaccessmemory[0].memoryspeed, "Some Speed");
+	copy_to_structure_char(&randomaccessmemory[0].configuredmemoryspeed, "Some Speed");
+	copy_to_structure_char(&randomaccessmemory[0].formfactor, "Some Factor");
+	copy_to_structure_char(&randomaccessmemory[0].banklocator, "Some Locator");
+	copy_to_structure_char(&randomaccessmemory[0].operatingvoltage, "Some Voltage");
+	copy_to_structure_char(&randomaccessmemory[0].manufacturer, "Some Manufacturer");
+}
+
 static void fill_up_processor_information()
 {
 	if(macPort == MACH_PORT_NULL)
@@ -6568,13 +6609,79 @@ static void fill_up_processor_information()
 
 	br_safe_sprintf(stringToPrint, 50, "%u", activeCores);
 	copy_to_structure_char(&centralprocessinguint.enabledcorescount, stringToPrint);
+
+	int64_t fetchedValue = 0;
+	size_t size = sizeof(fetchedValue);
+
+	char* queryParam = "hw.cachelinesize";
+
+	if (sysctlbyname(queryParam, &fetchedValue, &size, NULL, 0) == -1)
+	{
+		printf("BR_ERROR: %s not found with error %d\n", queryParam, errno);
+		br_safe_sprintf(stringToPrint, 50, "Unknown MHz");
+	}
+	else
+	{
+		br_safe_sprintf(stringToPrint, 50, "%lld MHz", fetchedValue / 1000000);
+	}
+	copy_to_structure_char(&centralprocessinguint.currentspeed, stringToPrint);
+
+	/*
+	 // The idea is to read sysctl.h file and look at the list of parameters, for instance
+	 #define CTL_HW_NAMES { \
+		 { 0, 0 }, \
+		 { "model", CTLTYPE_STRING },\
+	 ...
+	 }
+	 the queryParam is hw.model
+
+	queryParam = "hw.cpufrequency_max";
+
+	if(sysctlbyname(queryParam, &fetchedValue, &size, NULL, 0) == -1)
+	{
+		printf("BR_ERROR: %s not found with error %d\n", queryParam, errno);
+		br_safe_sprintf(stringToPrint, 50, "Unknown MHz");
+	}
+	else
+	{
+		br_safe_sprintf(stringToPrint, 50, "%lld MHz", fetchedValue / 1000000);
+	}
+	copy_to_structure_char(&centralprocessinguint.maximumspeed, stringToPrint);
+
+	queryParam = "kern.clockrate";
+
+	if(sysctlbyname(queryParam, &fetchedValue, &size, NULL, 0) == -1)
+	{
+		printf("BR_ERROR: %s not found with error %d\n", queryParam, errno);
+		br_safe_sprintf(stringToPrint, 50, "Unknown MHz");
+	}
+	else
+	{
+		br_safe_sprintf(stringToPrint, 50, "%lld MHz", fetchedValue / 1000000);
+	}
+	copy_to_structure_char(&centralprocessinguint.externalclock, stringToPrint);
+
+	queryParam = "kern.osversion";
+
+	//char* fetchedString[50];
+	//size = sizeof(stringToPrint);
+
+	if(sysctlbyname(queryParam, stringToPrint, &size, NULL, 0) == -1)
+	{
+		printf("BR_ERROR: %s not found with error %d\n", queryParam, errno);
+		br_safe_sprintf(stringToPrint, 50, "Unknown Version");
+	}
+	else
+	{
+		printf("OS Version is: %s", stringToPrint);
+	}*/
 }
 
 /*
  **************************************************************************************************************************
  *
  * All the Apple relevant electronics can be accessed via services. Little different from BiosReader's methadology but how
- * dare we to rechart theiry course with SMIOS standards!
+ * dare we to rechart their course with SMIOS standards!
  * https://developer.apple.com/library/archive/documentation/DeviceDrivers/Conceptual/AccessingHardware/AH_Finding_Devices/AH_Finding_Devices.html
  *
  * The routine extracts the BiosReader's relevant information from the already running services on Mac.
@@ -6589,6 +6696,8 @@ static void mac_device_service_gauger()
 
 	fill_up_bios_from_mac_equivalent();
 	fill_up_processor_information();
+
+	fill_up_ram_information();
 
 	// We shall begin by attempt to extract the Apple cpu clock speed
 	// Done and done
