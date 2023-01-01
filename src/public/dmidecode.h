@@ -22,8 +22,6 @@
 #define DMIDECODE_H
 
 #include <types.h>
-#include <glad.h>
-#include "GLFW/glfw3.h"
 
 #if defined BR_MAC_PLATFORM
 #include <Carbon/Carbon.h>

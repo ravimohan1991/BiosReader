@@ -34,6 +34,8 @@ elseif(CMAKE_C_BYTE_ORDER STREQUAL "LITTLE_ENDIAN")
 	add_compile_definitions(BR_LITTLE_ENDIAN)
 endif()
 
+add_compile_definitions(IMGL3W_IMPL)
+
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     add_compile_definitions(BR_SIXTY_FOUR_BIT_ISA)
 elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)

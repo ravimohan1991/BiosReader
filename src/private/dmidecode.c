@@ -5421,6 +5421,8 @@ static void allocate_and_initialize_memory_structure()
  * Main output
  * The juicy stuff!!
  */
+#define GL_GLEXT_PROTOTYPES
+#include "gladtheloader.h"
 
  /************************************************************************************
   *
@@ -5441,7 +5443,12 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		// be gald to add yet another clause in the switch. Till then let glad(ness) (the library)
 		// be the vessel for gpu identification, alongwith glfw.
 
-		int resultA = glfwInit();
+		int resultA = imgl3wInit();// with compliments from Dear ImGui
+		if (resultA != 0)
+		{
+			printf("Failed to initialize GLAD");
+		}
+		/*
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 		glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 		glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -5467,8 +5474,10 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		{
 			printf("Failed to initialize GLAD");
 			return;
-		}
+		}*/
 
+		// This method works for OpenGL renderer not for Vulkan.
+		// Shall work on some day based on mood!!
 #define GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX 0x9048
 		//#define GL_GPU_MEM_INFO_CURRENT_AVAILABLE_MEM_NVX 0x9049
 
@@ -5476,17 +5485,18 @@ static void dmi_decode(const struct dmi_header* h, u16 ver)
 		glGetIntegerv(GL_GPU_MEM_INFO_TOTAL_AVAILABLE_MEM_NVX, &total_mem_kb);
 
 		char graphicsmemorysize[10];
+		char propertyPie[50];
 
 		br_safe_sprintf(graphicsmemorysize, 10, "%d MB", total_mem_kb / 1000);
-
-		copy_to_structure_char(&graphicsprocessingunit.vendor, (char*)glGetString(GL_VENDOR));
-		copy_to_structure_char(&graphicsprocessingunit.gpuModel, (char*)glGetString(GL_RENDERER));
 		copy_to_structure_char(&graphicsprocessingunit.grandtotalvideomemory, graphicsmemorysize);
 
-		graphicsprocessingunit.bIsFilled = 1;
+		br_safe_sprintf(propertyPie, 50, "%s", (char*)glGetString(GL_VENDOR));
+		copy_to_structure_char(&graphicsprocessingunit.vendor, propertyPie);
 
-		glfwDestroyWindow(br_window_hack);
-		//glfwTerminate(); No need because Karma will take care of that
+		br_safe_sprintf(propertyPie, 50, "%s", (char*)glGetString(GL_RENDERER));
+		copy_to_structure_char(&graphicsprocessingunit.gpuModel, propertyPie);
+
+		graphicsprocessingunit.bIsFilled = 1;
 	}
 	/*
 	 * Note: DMI types 37 and 42 are untested
@@ -7098,7 +7108,7 @@ static int address_from_efi(off_t* address)
 			ret = 0;
 			break;
 		}
-	}
+}
 	if (fclose(efi_systab) != 0)
 		perror(filename);
 
