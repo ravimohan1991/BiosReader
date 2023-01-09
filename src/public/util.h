@@ -42,13 +42,23 @@ u64 u64_range(u64 start, u64 end);
 		snprintf(str, len, __VA_ARGS__)
 #endif
 
-#if defined (BR_LINUX_PLATFORM) || defined (BR_WINDOWS_PLATFORM)
+#if (BR_LINUX_PLATFORM)
+	#define br_safe_sprintf(str, len, ...) \
+		sprintf(str, __VA_ARGS__)
+#endif
+
+#if defined (BR_WINDOWS_PLATFORM)
 	#define br_safe_sprintf(str, len, ...) \
 		sprintf_s(str, len, __VA_ARGS__)
 #endif
 
 // Define br_safe_strcpy
-#if defined (BR_LINUX_PLATFORM) || defined (BR_WINDOWS_PLATFORM)
+#if defined (BR_LINUX_PLATFORM)
+	#define br_safe_strcpy(dest, dest_size, src)\
+		strcpy(dest, src);
+#endif
+
+#if defined (BR_WINDOWS_PLATFORM)
 	#define br_safe_strcpy(dest, dest_size, src)\
 		strcpy_s(dest, dest_size, src);
 #endif
