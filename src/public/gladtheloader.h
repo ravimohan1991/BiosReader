@@ -601,7 +601,9 @@ extern "C" {
 
 #include <stdlib.h>
 
+#ifndef ARRAY_SIZE
 #define ARRAY_SIZE(x)  (sizeof(x) / sizeof((x)[0]))
+#endif
 
 #if defined(_WIN32)
 #ifndef WIN32_LEAN_AND_MEAN
