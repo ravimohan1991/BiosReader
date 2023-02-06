@@ -695,7 +695,7 @@ extern "C" {
 
 	static void load_procs(GL3WGetProcAddressProc proc);
 
-	/*
+	
 	int imgl3wInit(void)
 	{
 		int res = open_libgl();
@@ -704,7 +704,7 @@ extern "C" {
 		atexit(close_libgl);
 		return imgl3wInit2(get_proc);
 	}
-
+	
 	int imgl3wInit2(GL3WGetProcAddressProc proc)
 	{
 		load_procs(proc);
@@ -720,7 +720,7 @@ extern "C" {
 		return version.major >= major;
 	}
 
-	GL3WglProc imgl3wGetProcAddress(const char* proc) { return get_proc(proc); }*/
+	GL3WglProc imgl3wGetProcAddress(const char* proc) { return get_proc(proc); }
 
 	static const char* proc_names[] = {
 		"glActiveTexture",
