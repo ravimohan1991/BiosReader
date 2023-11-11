@@ -6436,7 +6436,14 @@ static void fill_up_bios_from_mac_equivalent()
 	// Free Apple resources via handles
 	if (serviceDictionary != NULL)
 	{
-		CFRelease(serviceDictionary);
+		//CFRelease(serviceDictionary);// <--------------- gives errors "Exec Bad memory stuff"
+		// ponder over
+		// any possible memory leaks
+
+		// call stack
+		// fill_up_bios_from_mac_equivalent
+		// mac_device_service_gauger()
+		//
 		serviceDictionary = NULL;
 	}
 
